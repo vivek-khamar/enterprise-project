@@ -6,6 +6,8 @@ import com.enterprise.demo.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,26 +36,26 @@ class UserControllerTest {
     private UserService userService;
 
     @Test
-    void getAllUsers_returns200WithList() throws Exception {
-        when(userService.getAllUsers()).thenReturn(List.of(
+    void getAllUsers_returns200WithPagedContent() throws Exception {
+        when(userService.getAllUsers(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(
                 new UserDto(1L, "jsmith", "j@example.com"),
                 new UserDto(2L, "adoe", "a@example.com")
-        ));
+        )));
 
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].username").value("jsmith"))
-                .andExpect(jsonPath("$[1].username").value("adoe"));
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].username").value("jsmith"))
+                .andExpect(jsonPath("$.content[1].username").value("adoe"));
     }
 
     @Test
-    void getAllUsers_returns200WithEmptyList() throws Exception {
-        when(userService.getAllUsers()).thenReturn(List.of());
+    void getAllUsers_returns200WithEmptyPage() throws Exception {
+        when(userService.getAllUsers(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
         mockMvc.perform(get("/api/v1/users"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$.content").isEmpty());
     }
 
     @Test

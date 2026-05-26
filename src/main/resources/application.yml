@@ -3,9 +3,6 @@ spring:
     active: dev
   application:
     name: enterprise-project
-  h2:
-    console:
-      enabled: true
 
 server:
   port: 8080

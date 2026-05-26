@@ -23,6 +23,14 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
@@ -130,6 +138,7 @@
                             <excludes>
                                 <exclude>com/enterprise/demo/EnterpriseProjectApplication.class</exclude>
                                 <exclude>com/enterprise/demo/config/**</exclude>
+                                <exclude>com/enterprise/demo/event/**</exclude>
                                 <exclude>com/enterprise/demo/security/**</exclude>
                                 <exclude>com/enterprise/demo/util/**</exclude>
                             </excludes>

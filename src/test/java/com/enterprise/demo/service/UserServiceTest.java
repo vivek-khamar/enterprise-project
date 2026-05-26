@@ -2,13 +2,21 @@ package com.enterprise.demo.service;
 
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.entity.User;
+import com.enterprise.demo.event.UserEvent;
+import com.enterprise.demo.event.UserEventPublisher;
+import com.enterprise.demo.event.UserEventType;
 import com.enterprise.demo.exception.ResourceNotFoundException;
 import com.enterprise.demo.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,28 +33,33 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserEventPublisher eventPublisher;
+
     @InjectMocks
     private UserService userService;
 
-    @Test
-    void getAllUsers_returnsEmptyList() {
-        when(userRepository.findAll()).thenReturn(List.of());
+    private static final Pageable PAGE = PageRequest.of(0, 50);
 
-        assertThat(userService.getAllUsers()).isEmpty();
+    @Test
+    void getAllUsers_returnsEmptyPage() {
+        when(userRepository.findAll(any(Pageable.class))).thenReturn(Page.empty());
+
+        assertThat(userService.getAllUsers(PAGE).getContent()).isEmpty();
     }
 
     @Test
     void getAllUsers_returnsMappedDtos() {
         User user = new User("jsmith", "j@example.com");
         user.setId(1L);
-        when(userRepository.findAll()).thenReturn(List.of(user));
+        when(userRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(user)));
 
-        List<UserDto> result = userService.getAllUsers();
+        Page<UserDto> result = userService.getAllUsers(PAGE);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(1L);
-        assertThat(result.get(0).getUsername()).isEqualTo("jsmith");
-        assertThat(result.get(0).getEmail()).isEqualTo("j@example.com");
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
+        assertThat(result.getContent().get(0).getUsername()).isEqualTo("jsmith");
+        assertThat(result.getContent().get(0).getEmail()).isEqualTo("j@example.com");
     }
 
     @Test
@@ -72,7 +85,7 @@ class UserServiceTest {
     }
 
     @Test
-    void createUser_savesAndReturnsDto() {
+    void createUser_savesAndPublishesCreatedEvent() {
         UserDto dto = new UserDto(null, "jsmith", "j@example.com");
         User savedUser = new User("jsmith", "j@example.com");
         savedUser.setId(1L);
@@ -82,11 +95,16 @@ class UserServiceTest {
 
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getUsername()).isEqualTo("jsmith");
-        verify(userRepository).save(any(User.class));
+
+        ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_CREATED);
+        assertThat(captor.getValue().payload().userId()).isEqualTo(1L);
+        assertThat(captor.getValue().version()).isEqualTo("1.0");
     }
 
     @Test
-    void updateUser_updatesAndReturnsDto() {
+    void updateUser_updatesAndPublishesUpdatedEvent() {
         User existing = new User("old", "old@example.com");
         existing.setId(1L);
         UserDto updateDto = new UserDto(null, "new", "new@example.com");
@@ -98,7 +116,11 @@ class UserServiceTest {
         UserDto result = userService.updateUser(1L, updateDto);
 
         assertThat(result.getUsername()).isEqualTo("new");
-        assertThat(result.getEmail()).isEqualTo("new@example.com");
+
+        ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_UPDATED);
+        assertThat(captor.getValue().payload().username()).isEqualTo("new");
     }
 
     @Test
@@ -111,7 +133,7 @@ class UserServiceTest {
     }
 
     @Test
-    void deleteUser_deletesUser() {
+    void deleteUser_deletesAndPublishesDeletedEvent() {
         User user = new User("jsmith", "j@example.com");
         user.setId(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -119,6 +141,11 @@ class UserServiceTest {
         userService.deleteUser(1L);
 
         verify(userRepository).delete(user);
+
+        ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_DELETED);
+        assertThat(captor.getValue().payload().userId()).isEqualTo(1L);
     }
 
     @Test
