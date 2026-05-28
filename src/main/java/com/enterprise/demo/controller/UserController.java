@@ -14,21 +14,23 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
+import com.enterprise.demo.client.NotificationClient;
+import com.enterprise.demo.dto.NotificationDto;
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.service.UserService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/**
- * Controller for managing users.
- */
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
+    private final NotificationClient notificationClient;
 
     @GetMapping
     public ResponseEntity<Page<UserDto>> getAllUsers(
@@ -57,5 +59,11 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/notifications")
+    public ResponseEntity<List<NotificationDto>> getUserNotifications(@PathVariable Long id) {
+        userService.getUserById(id); // validates user exists; throws 404 if not
+        return ResponseEntity.ok(notificationClient.getNotificationsForUser(id));
     }
 }

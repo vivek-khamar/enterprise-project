@@ -31,8 +31,14 @@ spring:
         spring.json.value.default.type: "com.enterprise.demo.event.UserEvent"
     admin:
       fail-fast: false
+      properties:
+        request.timeout.ms: 3000
     listener:
       auto-startup: false
+
+notification:
+  service:
+    url: http://localhost:8081/notifications
 
 logging:
   level:

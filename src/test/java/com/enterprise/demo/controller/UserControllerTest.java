@@ -1,5 +1,7 @@
 package com.enterprise.demo.controller;
 
+import com.enterprise.demo.client.NotificationClient;
+import com.enterprise.demo.dto.NotificationDto;
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.exception.ResourceNotFoundException;
 import com.enterprise.demo.service.UserService;
@@ -13,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -35,6 +38,9 @@ class UserControllerTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private NotificationClient notificationClient;
 
     @Test
     void getAllUsers_returns200WithPagedContent() throws Exception {
@@ -162,6 +168,40 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/v1/users/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"));
+    }
+
+    @Test
+    void getUserNotifications_returns200WithList() throws Exception {
+        when(userService.getUserById(1L)).thenReturn(new UserDto(1L, "jsmith", "j@example.com"));
+        when(notificationClient.getNotificationsForUser(1L)).thenReturn(List.of(
+                new NotificationDto(1L, 1L, "jsmith", "Welcome, jsmith!", "USER_CREATED", Instant.now())
+        ));
+
+        mockMvc.perform(get("/api/v1/users/1/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].userId").value(1))
+                .andExpect(jsonPath("$[0].eventType").value("USER_CREATED"));
+    }
+
+    @Test
+    void getUserNotifications_returns404WhenUserNotFound() throws Exception {
+        when(userService.getUserById(99L))
+                .thenThrow(new ResourceNotFoundException("User not found with id: 99"));
+
+        mockMvc.perform(get("/api/v1/users/99/notifications"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+    }
+
+    @Test
+    void getUserNotifications_returnsEmptyListWhenServiceUnavailable() throws Exception {
+        when(userService.getUserById(1L)).thenReturn(new UserDto(1L, "jsmith", "j@example.com"));
+        when(notificationClient.getNotificationsForUser(1L)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/users/1/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
