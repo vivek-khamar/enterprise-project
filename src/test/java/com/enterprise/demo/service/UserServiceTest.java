@@ -18,12 +18,16 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -155,5 +159,79 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.deleteUser(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("99");
+    }
+
+    @Test
+    void createUser_defersPublishToAfterCommitWhenTransactionActive() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            User savedUser = new User("jsmith", "j@example.com");
+            savedUser.setId(1L);
+            when(userRepository.save(any(User.class))).thenReturn(savedUser);
+
+            userService.createUser(new UserDto(null, "jsmith", "j@example.com"));
+
+            verify(eventPublisher, never()).publish(any());
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+            verify(eventPublisher).publish(captor.capture());
+            assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_CREATED);
+            assertThat(captor.getValue().payload().userId()).isEqualTo(1L);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void updateUser_defersPublishToAfterCommitWhenTransactionActive() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            User existing = new User("old", "old@example.com");
+            existing.setId(1L);
+            User updated = new User("new", "new@example.com");
+            updated.setId(1L);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(userRepository.save(existing)).thenReturn(updated);
+
+            userService.updateUser(1L, new UserDto(null, "new", "new@example.com"));
+
+            verify(eventPublisher, never()).publish(any());
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+            verify(eventPublisher).publish(captor.capture());
+            assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_UPDATED);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void deleteUser_defersPublishToAfterCommitWhenTransactionActive() {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            User user = new User("jsmith", "j@example.com");
+            user.setId(1L);
+            when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+            userService.deleteUser(1L);
+
+            verify(eventPublisher, never()).publish(any());
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            ArgumentCaptor<UserEvent> captor = ArgumentCaptor.forClass(UserEvent.class);
+            verify(eventPublisher).publish(captor.capture());
+            assertThat(captor.getValue().eventType()).isEqualTo(UserEventType.USER_DELETED);
+            assertThat(captor.getValue().payload().userId()).isEqualTo(1L);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 }

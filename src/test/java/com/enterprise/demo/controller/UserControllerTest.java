@@ -3,6 +3,7 @@ package com.enterprise.demo.controller;
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.exception.ResourceNotFoundException;
 import com.enterprise.demo.service.UserService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -161,5 +162,31 @@ class UserControllerTest {
         mockMvc.perform(delete("/api/v1/users/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"));
+    }
+
+    @Test
+    void createUser_returns409WhenDataConflict() throws Exception {
+        when(userService.createUser(any(UserDto.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate key"));
+
+        mockMvc.perform(post("/api/v1/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Data conflict"))
+                .andExpect(jsonPath("$.details").value("A resource with the given data already exists"));
+    }
+
+    @Test
+    void createUser_returns500ForUnhandledException() throws Exception {
+        when(userService.createUser(any(UserDto.class)))
+                .thenThrow(new RuntimeException("unexpected failure"));
+
+        mockMvc.perform(post("/api/v1/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.message").value("Internal Server Error"))
+                .andExpect(jsonPath("$.details").value("An unexpected error occurred"));
     }
 }

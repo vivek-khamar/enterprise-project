@@ -8,6 +8,10 @@ spring:
       ddl-auto: validate
     show-sql: false
 
+  kafka:
+    consumer:
+      group-id: enterprise-user-consumer-qa
+
 logging:
   level:
     root: INFO
