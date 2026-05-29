@@ -1,0 +1,12 @@
+.git/
+.idea/
+*.iml
+deploy/
+src/
+.mvn/
+mvnw
+pom.xml
+target/surefire-reports/
+target/jacoco.exec
+target/site/
+target/*-sources.jar
