@@ -1,0 +1,128 @@
+name: CI
+
+# Runs on every push to the main branch and on every pull request targeting it.
+# The pipeline enforces three quality gates:
+#   1. All tests pass (unit + integration via TestContainers)
+#   2. JaCoCo instruction coverage ≥ 80 % (configured in pom.xml jacoco:check)
+#   3. SonarCloud quality gate (requires SONAR_TOKEN secret — skipped when absent)
+#
+# Branch-protection setup (configure in GitHub → Settings → Branches):
+#   • Require status check: "Build · Test · Coverage · Quality"
+#   • Require branches to be up-to-date before merging
+#   • Dismiss stale reviews when new commits are pushed
+#   • Require at least 1 approving review
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [master, main]
+
+permissions:
+  contents: read
+  pull-requests: write   # post coverage comment
+  checks: write          # create check runs
+  statuses: write        # update commit status
+
+env:
+  JAVA_VERSION: '25'
+  JAVA_DISTRIBUTION: 'temurin'
+
+jobs:
+  # ── Single job keeps the Maven cache warm between steps ───────────────────
+  build-test-analyse:
+    name: Build · Test · Coverage · Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout (full history for SonarCloud blame annotations)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Java + Maven cache ────────────────────────────────────────────────
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      # ── Docker (required by TestContainers integration tests) ─────────────
+      # GitHub-hosted ubuntu-latest runners ship Docker pre-installed.
+      - name: Confirm Docker is available (TestContainers dependency)
+        run: docker info --format '{{.ServerVersion}}'
+
+      # ── Main build ────────────────────────────────────────────────────────
+      # `verify` runs the full lifecycle:
+      #   compile → test → package → jacoco:report → jacoco:check
+      #
+      # jacoco:check (pom.xml) FAILS the build if instruction coverage < 80 %.
+      # Integration tests spin up real PostgreSQL and Kafka via TestContainers.
+      - name: Build, test, and enforce 80 % coverage gate
+        run: ./mvnw -B verify --no-transfer-progress
+
+      # ── Artefacts ─────────────────────────────────────────────────────────
+      - name: Upload JaCoCo HTML + XML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          retention-days: 14
+
+      - name: Upload Surefire test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-results
+          path: target/surefire-reports/
+          retention-days: 14
+
+      # ── Coverage comment on PR ────────────────────────────────────────────
+      # Posts (or updates) a coverage table comment on the pull request.
+      # The step itself emits a failure status when overall or per-file
+      # coverage drops below the minimum — the check remains advisory here
+      # because jacoco:check already blocks the build upstream.
+      - name: Annotate PR with JaCoCo coverage delta
+        if: github.event_name == 'pull_request'
+        uses: madrapps/jacoco-report@v1.6.1
+        with:
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 80
+          min-coverage-changed-files: 80
+          title: 'Coverage Report'
+          update-comment: true
+          pass-emoji: '✅'
+          fail-emoji: '❌'
+          debug-mode: false
+
+      # ── Dockerfile lint ───────────────────────────────────────────────────
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      # ── SonarCloud ────────────────────────────────────────────────────────
+      # Skipped automatically when SONAR_TOKEN is not set in repo secrets.
+      # Setup guide:
+      #   1. Sign up at https://sonarcloud.io and import the repository.
+      #   2. Add SONAR_TOKEN to GitHub → Settings → Secrets → Actions.
+      #   3. Set SONAR_PROJECT_KEY and SONAR_ORGANIZATION as Actions Variables.
+      - name: SonarCloud analysis
+        if: ${{ secrets.SONAR_TOKEN != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:3.11.0.3922:sonar \
+            --no-transfer-progress \
+            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'vivek-khamar_enterprise-project' }} \
+            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION || 'vivek-khamar' }} \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml \
+            -Dsonar.qualitygate.wait=true
