@@ -1,4 +1,7 @@
 spring:
+  h2:
+    console:
+      enabled: true
   datasource:
     url: jdbc:h2:mem:testdb
     username: sa
@@ -11,6 +14,42 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+        max.block.ms: 500        # fail fast when Kafka is unavailable; default 60 000 ms blocks responses
+    consumer:
+      group-id: enterprise-user-consumer-dev
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.enterprise.demo.event"
+        spring.json.value.default.type: "com.enterprise.demo.event.UserEvent"
+    admin:
+      fail-fast: false
+      properties:
+        request.timeout.ms: 3000
+    listener:
+      auto-startup: false
+
+aws:
+  s3:
+    region: ${AWS_REGION:us-east-1}
+    bucket-name: ${AWS_S3_BUCKET:enterprise-dev-uploads}
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    presigned-url-expiry-minutes: 15
+    # For LocalStack: set AWS_S3_ENDPOINT_URL=http://localhost:4566 and use access-key-id/secret-access-key=test
+    endpoint-url: ${AWS_S3_ENDPOINT_URL:}
+
+notification:
+  service:
+    url: http://localhost:8081/notifications
 
 logging:
   level:

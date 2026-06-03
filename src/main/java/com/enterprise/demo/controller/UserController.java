@@ -1,29 +1,49 @@
 package com.enterprise.demo.controller;
 
-import com.enterprise.demo.dto.UserDto;
-import com.enterprise.demo.service.UserService;
-import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import com.enterprise.demo.client.NotificationClient;
+import com.enterprise.demo.dto.NotificationDto;
+import com.enterprise.demo.dto.UserDto;
+import com.enterprise.demo.service.UserService;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/**
- * Controller for managing users.
- */
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
+    private final NotificationClient notificationClient;
 
     @GetMapping
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<Page<UserDto>> getAllUsers(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email,
+            @PageableDefault(size = 50, sort = "id") Pageable pageable) {
+        String usernameFilter = (username != null && !username.isBlank()) ? username : null;
+        String emailFilter = (email != null && !email.isBlank()) ? email : null;
+        if (usernameFilter != null || emailFilter != null) {
+            return ResponseEntity.ok(userService.searchUsers(usernameFilter, emailFilter, pageable));
+        }
+        return ResponseEntity.ok(userService.getAllUsers(pageable));
     }
 
     @GetMapping("/{id}")
@@ -47,5 +67,11 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/notifications")
+    public ResponseEntity<List<NotificationDto>> getUserNotifications(@PathVariable Long id) {
+        userService.getUserById(id); // validates user exists; throws 404 if not
+        return ResponseEntity.ok(notificationClient.getNotificationsForUser(id));
     }
 }

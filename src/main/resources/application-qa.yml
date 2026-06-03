@@ -1,12 +1,16 @@
 spring:
   datasource:
     url: jdbc:postgresql://qa-db-server:5432/enterprise_qa
-    username: qa_user
-    password: qa_password
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
     show-sql: false
+
+  kafka:
+    consumer:
+      group-id: enterprise-user-consumer-qa
 
 logging:
   level:
