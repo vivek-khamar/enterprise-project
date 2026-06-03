@@ -1,0 +1,27 @@
+# CODEOWNERS — defines who must review changes to specific paths.
+# GitHub enforces these as required reviewers when the branch-protection
+# rule "Require review from Code Owners" is enabled.
+#
+# Syntax: <path pattern>  <@github-user or @org/team>
+# Patterns are evaluated top-to-bottom; the last matching rule wins.
+
+# ── Default: team lead reviews everything ────────────────────────────────────
+*  @vivek-khamar
+
+# ── High-risk paths require explicit lead sign-off ────────────────────────────
+# Security configuration — any change here affects all endpoints
+src/main/java/com/enterprise/demo/security/   @vivek-khamar
+
+# CI pipeline and quality gates
+.github/                                        @vivek-khamar
+
+# Deployment configuration (Docker, Kubernetes, docker-compose)
+deploy/                                         @vivek-khamar
+Dockerfile                                      @vivek-khamar
+Dockerfile.dev                                  @vivek-khamar
+
+# Database migration scripts (when added)
+# src/main/resources/db/migration/             @vivek-khamar
+
+# SonarCloud and code-quality configuration
+sonar-project.properties                        @vivek-khamar

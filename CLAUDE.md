@@ -142,14 +142,31 @@ com.enterprise.demo
 - **Kafka not provisioned for QA/prod** — `application-qa.yml` and `application-prod.yml` have no Kafka config; add bootstrap-servers before deploying event-driven features
 - **Consumer is log-only** — `UserEventConsumer` logs events but takes no action; downstream processing not yet implemented
 - **No API docs** — no Swagger/SpringDoc configured
-- **No Docker / CI/CD** — no Dockerfile, docker-compose, Jenkinsfile, or GitHub Actions
+
+## CI / CD
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/ci.yml` | GitHub Actions pipeline — build, test, JaCoCo gate, SonarCloud |
+| `.github/PULL_REQUEST_TEMPLATE.md` | PR checklist (tests, conventions, security, error handling) |
+| `.github/CODEOWNERS` | Required reviewers per path |
+| `sonar-project.properties` | SonarCloud / SonarQube project settings |
+
+**Branch-protection rules** (set in GitHub → Settings → Branches → master):
+- Require status check: `Build · Test · Coverage · Quality`
+- Require branches to be up-to-date before merging
+- Require at least 1 Code Owner review
+
+**Quality gates** enforced automatically:
+- JaCoCo instruction coverage ≥ 80 % (Maven `verify` fails the build)
+- SonarCloud quality gate (Sonar way: coverage, duplication, maintainability, security ratings)
 
 ## Build & Test
 
 ```bash
 ./mvnw clean package          # build JAR
 ./mvnw test                   # run tests
-./mvnw clean verify           # full build + tests
+./mvnw clean verify           # full build + tests + coverage check
 ```
 
 ## Team & Conventions
