@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -34,7 +35,14 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<Page<UserDto>> getAllUsers(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email,
             @PageableDefault(size = 50, sort = "id") Pageable pageable) {
+        String usernameFilter = (username != null && !username.isBlank()) ? username : null;
+        String emailFilter = (email != null && !email.isBlank()) ? email : null;
+        if (usernameFilter != null || emailFilter != null) {
+            return ResponseEntity.ok(userService.searchUsers(usernameFilter, emailFilter, pageable));
+        }
         return ResponseEntity.ok(userService.getAllUsers(pageable));
     }
 

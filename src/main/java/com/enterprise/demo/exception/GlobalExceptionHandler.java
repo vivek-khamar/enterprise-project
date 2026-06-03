@@ -1,5 +1,7 @@
 package com.enterprise.demo.exception;
 
+import com.enterprise.demo.exception.FileStorageException;
+import com.enterprise.demo.exception.InvalidFileException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -59,6 +61,32 @@ public class GlobalExceptionHandler {
         body.put("details", "A resource with the given data already exists");
 
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<Object> handleInvalidFileException(
+            InvalidFileException ex, WebRequest request) {
+        log.warn("Invalid file: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", "Invalid file");
+        body.put("details", ex.getMessage());
+
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<Object> handleFileStorageException(
+            FileStorageException ex, WebRequest request) {
+        log.error("File storage error: {}", ex.getMessage(), ex);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", "File storage error");
+        body.put("details", ex.getMessage());
+
+        return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(Exception.class)

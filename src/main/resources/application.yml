@@ -3,8 +3,28 @@ spring:
     active: dev
   application:
     name: enterprise-project
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  datasource:
+    hikari:
+      maximum-pool-size: 20       # H2 saturates above ~15 simultaneous queries; 20 is the sweet spot
+      minimum-idle: 10
+      connection-timeout: 20000   # ms — fail fast instead of queuing for 30 s
+  cache:
+    type: caffeine
+    caffeine:
+      # Sized to hold all possible request keys without eviction:
+      #   20 list pages + 9 search terms + 2 000 user IDs ≈ 2 030 entries
+      spec: maximumSize=5000,expireAfterWrite=10s
 
 server:
   port: 8080
   servlet:
     context-path: /enterprise
+  tomcat:
+    threads:
+      max: 200                    # keep at default — 400 causes excess context-switching on 8 cores
+      min-spare: 20
+    accept-count: 800             # accept-queue large enough for 1 000 VUs (200 threads + 800 queue)

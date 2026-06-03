@@ -21,6 +21,7 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         spring.json.add.type.headers: false
+        max.block.ms: 500        # fail fast when Kafka is unavailable; default 60 000 ms blocks responses
     consumer:
       group-id: enterprise-user-consumer-dev
       auto-offset-reset: earliest
@@ -35,6 +36,16 @@ spring:
         request.timeout.ms: 3000
     listener:
       auto-startup: false
+
+aws:
+  s3:
+    region: ${AWS_REGION:us-east-1}
+    bucket-name: ${AWS_S3_BUCKET:enterprise-dev-uploads}
+    access-key-id: ${AWS_ACCESS_KEY_ID:}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+    presigned-url-expiry-minutes: 15
+    # For LocalStack: set AWS_S3_ENDPOINT_URL=http://localhost:4566 and use access-key-id/secret-access-key=test
+    endpoint-url: ${AWS_S3_ENDPOINT_URL:}
 
 notification:
   service:

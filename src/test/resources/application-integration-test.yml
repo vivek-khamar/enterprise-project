@@ -1,0 +1,36 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+        max.block.ms: 5000
+        request.timeout.ms: 3000
+    consumer:
+      group-id: enterprise-user-consumer-it
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.enterprise.demo.event"
+        spring.json.value.default.type: "com.enterprise.demo.event.UserEvent"
+    listener:
+      auto-startup: false
+    admin:
+      fail-fast: false
+      properties:
+        request.timeout.ms: 3000
+
+notification:
+  service:
+    url: http://localhost:18080/notifications
+
+aws:
+  s3:
+    region: us-east-1
+    bucket-name: integration-test-bucket
