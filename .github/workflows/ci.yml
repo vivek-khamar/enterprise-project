@@ -14,10 +14,10 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, develop]
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [master, main]
+    branches: [master, main, develop]   # include feature → develop PRs
 
 permissions:
   contents: read
@@ -55,6 +55,15 @@ jobs:
       - name: Confirm Docker is available (TestContainers dependency)
         run: docker info --format '{{.ServerVersion}}'
 
+      # Cache the Docker images that TestContainers pulls at test time.
+      # On a cache hit the runner loads them from disk instead of pulling
+      # from Docker Hub, saving ~30–60 s per run.
+      # Cache key rolls when pom.xml changes (new TestContainers version).
+      - name: Cache Docker images (TestContainers)
+        uses: ScribeMD/docker-cache@0.5.0
+        with:
+          key: docker-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+
       # ── Main build ────────────────────────────────────────────────────────
       # `verify` runs the full lifecycle:
       #   compile → test → package → jacoco:report → jacoco:check
@@ -62,6 +71,7 @@ jobs:
       # jacoco:check (pom.xml) FAILS the build if instruction coverage < 80 %.
       # Integration tests spin up real PostgreSQL and Kafka via TestContainers.
       - name: Build, test, and enforce 80 % coverage gate
+        timeout-minutes: 20
         run: ./mvnw -B verify --no-transfer-progress
 
       # ── Artefacts ─────────────────────────────────────────────────────────
