@@ -114,7 +114,7 @@ jobs:
       #   2. Add SONAR_TOKEN to GitHub → Settings → Secrets → Actions.
       #   3. Set SONAR_PROJECT_KEY and SONAR_ORGANIZATION as Actions Variables.
       - name: SonarCloud analysis
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: env.SONAR_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
