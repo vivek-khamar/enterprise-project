@@ -9,6 +9,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.enterprise.demo.security.JwtUtil;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -19,6 +21,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -35,6 +38,12 @@ class UserSearchControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockitoBean
+    private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
 
     @MockitoBean
     private UserService userService;
@@ -56,7 +65,7 @@ class UserSearchControllerTest {
                 .thenReturn(new PageImpl<>(List.of(
                         new UserDto(1L, "jsmith", "j@example.com"))));
 
-        mockMvc.perform(get("/api/v1/users").param("username", "smith"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")).param("username", "smith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].username").value("jsmith"));
@@ -77,7 +86,7 @@ class UserSearchControllerTest {
                 .thenReturn(new PageImpl<>(List.of(
                         new UserDto(1L, "jsmith", "j@example.com"))));
 
-        mockMvc.perform(get("/api/v1/users").param("email", "example.com"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")).param("email", "example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
 
@@ -121,7 +130,7 @@ class UserSearchControllerTest {
                 .thenReturn(new PageImpl<>(List.of(
                         new UserDto(1L, "jsmith", "j@example.com"))));
 
-        mockMvc.perform(get("/api/v1/users").param("username", "smith"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")).param("username", "smith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].username").value("jsmith"))
@@ -138,7 +147,7 @@ class UserSearchControllerTest {
         when(userService.searchUsers(isNull(), eq("zzz.invalid"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
 
-        mockMvc.perform(get("/api/v1/users").param("email", "zzz.invalid"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")).param("email", "zzz.invalid"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
     }
@@ -173,7 +182,7 @@ class UserSearchControllerTest {
                 .thenReturn(new PageImpl<>(List.of(
                         new UserDto(1L, "jsmith", "j@example.com"))));
 
-        mockMvc.perform(get("/api/v1/users"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
 

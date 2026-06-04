@@ -13,6 +13,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.enterprise.demo.security.JwtUtil;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -23,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,10 +40,18 @@ class UserControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
+
+    @MockitoBean
     private UserService userService;
 
     @MockitoBean
     private NotificationClient notificationClient;
+
+    // ── read endpoints — any authenticated user ───────────────────────────────
 
     @Test
     void getAllUsers_returns200WithPagedContent() throws Exception {
@@ -49,7 +60,7 @@ class UserControllerTest {
                 new UserDto(2L, "adoe", "a@example.com")
         )));
 
-        mockMvc.perform(get("/api/v1/users"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].username").value("jsmith"))
@@ -60,7 +71,7 @@ class UserControllerTest {
     void getAllUsers_returns200WithEmptyPage() throws Exception {
         when(userService.getAllUsers(any(Pageable.class))).thenReturn(new PageImpl<>(List.of()));
 
-        mockMvc.perform(get("/api/v1/users"))
+        mockMvc.perform(get("/api/v1/users").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
     }
@@ -69,7 +80,7 @@ class UserControllerTest {
     void getUserById_returns200() throws Exception {
         when(userService.getUserById(1L)).thenReturn(new UserDto(1L, "jsmith", "j@example.com"));
 
-        mockMvc.perform(get("/api/v1/users/1"))
+        mockMvc.perform(get("/api/v1/users/1").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.username").value("jsmith"))
@@ -81,18 +92,20 @@ class UserControllerTest {
         when(userService.getUserById(99L))
                 .thenThrow(new ResourceNotFoundException("User not found with id: 99"));
 
-        mockMvc.perform(get("/api/v1/users/99"))
+        mockMvc.perform(get("/api/v1/users/99").with(user("jsmith").roles("USER")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"))
                 .andExpect(jsonPath("$.details").value("User not found with id: 99"));
     }
+
+    // ── write endpoints — ADMIN only ─────────────────────────────────────────
 
     @Test
     void createUser_returns201() throws Exception {
         when(userService.createUser(any(UserDto.class)))
                 .thenReturn(new UserDto(1L, "jsmith", "j@example.com"));
 
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/users").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isCreated())
@@ -102,7 +115,7 @@ class UserControllerTest {
 
     @Test
     void createUser_returns400ForBlankUsername() throws Exception {
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/users").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isBadRequest())
@@ -111,7 +124,7 @@ class UserControllerTest {
 
     @Test
     void createUser_returns400ForInvalidEmail() throws Exception {
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/users").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"not-an-email\"}"))
                 .andExpect(status().isBadRequest())
@@ -123,7 +136,7 @@ class UserControllerTest {
         when(userService.updateUser(eq(1L), any(UserDto.class)))
                 .thenReturn(new UserDto(1L, "updated", "updated@example.com"));
 
-        mockMvc.perform(put("/api/v1/users/1")
+        mockMvc.perform(put("/api/v1/users/1").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"updated\",\"email\":\"updated@example.com\"}"))
                 .andExpect(status().isOk())
@@ -136,7 +149,7 @@ class UserControllerTest {
         when(userService.updateUser(eq(99L), any(UserDto.class)))
                 .thenThrow(new ResourceNotFoundException("User not found with id: 99"));
 
-        mockMvc.perform(put("/api/v1/users/99")
+        mockMvc.perform(put("/api/v1/users/99").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"updated\",\"email\":\"updated@example.com\"}"))
                 .andExpect(status().isNotFound())
@@ -145,7 +158,7 @@ class UserControllerTest {
 
     @Test
     void updateUser_returns400ForInvalidBody() throws Exception {
-        mockMvc.perform(put("/api/v1/users/1")
+        mockMvc.perform(put("/api/v1/users/1").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"\",\"email\":\"bad-email\"}"))
                 .andExpect(status().isBadRequest())
@@ -156,7 +169,7 @@ class UserControllerTest {
     void deleteUser_returns204() throws Exception {
         doNothing().when(userService).deleteUser(1L);
 
-        mockMvc.perform(delete("/api/v1/users/1"))
+        mockMvc.perform(delete("/api/v1/users/1").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
     }
 
@@ -165,10 +178,12 @@ class UserControllerTest {
         doThrow(new ResourceNotFoundException("User not found with id: 99"))
                 .when(userService).deleteUser(99L);
 
-        mockMvc.perform(delete("/api/v1/users/99"))
+        mockMvc.perform(delete("/api/v1/users/99").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"));
     }
+
+    // ── notification endpoint — any authenticated user ────────────────────────
 
     @Test
     void getUserNotifications_returns200WithList() throws Exception {
@@ -177,7 +192,7 @@ class UserControllerTest {
                 new NotificationDto(1L, 1L, "jsmith", "Welcome, jsmith!", "USER_CREATED", Instant.now())
         ));
 
-        mockMvc.perform(get("/api/v1/users/1/notifications"))
+        mockMvc.perform(get("/api/v1/users/1/notifications").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].userId").value(1))
@@ -189,7 +204,7 @@ class UserControllerTest {
         when(userService.getUserById(99L))
                 .thenThrow(new ResourceNotFoundException("User not found with id: 99"));
 
-        mockMvc.perform(get("/api/v1/users/99/notifications"))
+        mockMvc.perform(get("/api/v1/users/99/notifications").with(user("jsmith").roles("USER")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"));
     }
@@ -199,7 +214,7 @@ class UserControllerTest {
         when(userService.getUserById(1L)).thenReturn(new UserDto(1L, "jsmith", "j@example.com"));
         when(notificationClient.getNotificationsForUser(1L)).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/users/1/notifications"))
+        mockMvc.perform(get("/api/v1/users/1/notifications").with(user("jsmith").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -209,7 +224,7 @@ class UserControllerTest {
         when(userService.createUser(any(UserDto.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/users").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isConflict())
@@ -222,7 +237,7 @@ class UserControllerTest {
         when(userService.createUser(any(UserDto.class)))
                 .thenThrow(new RuntimeException("unexpected failure"));
 
-        mockMvc.perform(post("/api/v1/users")
+        mockMvc.perform(post("/api/v1/users").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isInternalServerError())

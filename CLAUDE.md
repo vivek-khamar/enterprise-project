@@ -136,9 +136,8 @@ com.enterprise.demo
 
 ## Known Technical Debt & Constraints
 
-- **No security layer** — endpoints are unauthenticated; `security/` package is empty
 - **No database migrations** — no Flyway or Liquibase; DDL managed by Hibernate (`update` in dev, `validate` in qa/prod requires manual schema setup)
-- **Hardcoded QA credentials** — `application-qa.yml` contains plaintext DB password
+- **JWT dev default** — `application.yml` ships a Base64-encoded development-only default for `JWT_SECRET`. Override this with a strong random value in every non-dev environment via the `JWT_SECRET` environment variable.
 - **Kafka not provisioned for QA/prod** — `application-qa.yml` and `application-prod.yml` have no Kafka config; add bootstrap-servers before deploying event-driven features
 - **Consumer is log-only** — `UserEventConsumer` logs events but takes no action; downstream processing not yet implemented
 - **No API docs** — no Swagger/SpringDoc configured

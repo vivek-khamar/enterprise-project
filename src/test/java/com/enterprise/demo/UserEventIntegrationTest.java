@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -58,7 +59,7 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
         try (KafkaConsumer<String, String> consumer = newConsumer()) {
             prime(consumer);
 
-            mockMvc.perform(post(USERS_BASE)
+            mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                     .andExpect(status().isCreated());
@@ -78,7 +79,7 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
         try (KafkaConsumer<String, String> consumer = newConsumer()) {
             prime(consumer);
 
-            mockMvc.perform(put(USERS_BASE + "/" + id)
+            mockMvc.perform(put(USERS_BASE + "/" + id).with(user("admin").roles("ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"username\":\"alice2\",\"email\":\"alice2@example.com\"}"))
                     .andExpect(status().isOk());
@@ -97,7 +98,7 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
         try (KafkaConsumer<String, String> consumer = newConsumer()) {
             prime(consumer);
 
-            mockMvc.perform(delete(USERS_BASE + "/" + id))
+            mockMvc.perform(delete(USERS_BASE + "/" + id).with(user("admin").roles("ADMIN")))
                     .andExpect(status().isNoContent());
 
             JsonNode event = pollOneEvent(consumer);
@@ -112,7 +113,7 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
         try (KafkaConsumer<String, String> consumer = newConsumer()) {
             prime(consumer);
 
-            mockMvc.perform(post(USERS_BASE)
+            mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"username\":\"evtuser\",\"email\":\"evt@example.com\"}"))
                     .andExpect(status().isCreated());
@@ -185,7 +186,7 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
     }
 
     private long createUserAndExtractId(String username, String email) throws Exception {
-        MvcResult result = mockMvc.perform(post(USERS_BASE)
+        MvcResult result = mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\"}"))
                 .andExpect(status().isCreated())

@@ -1,7 +1,10 @@
 package com.enterprise.demo.entity;
 
+import com.enterprise.demo.security.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -34,8 +37,27 @@ public class User {
     @Column(nullable = false, length = 254)
     private String email;
 
+    @Column(nullable = false)
+    private String password;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Role role = Role.USER;
+
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    /**
+     * Convenience constructor used by existing tests and legacy service code.
+     * Sets a BCrypt placeholder password that is overwritten by AuthService/UserService
+     * when a real password is provided.
+     */
     public User(String username, String email) {
         this.username = username;
         this.email = email;
+        // BCrypt hash of "password" — good enough for tests that don't exercise login
+        this.password = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+        this.role = Role.USER;
+        this.enabled = true;
     }
 }

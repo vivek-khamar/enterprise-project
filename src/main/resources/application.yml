@@ -19,6 +19,15 @@ spring:
       #   20 list pages + 9 search terms + 2 000 user IDs ≈ 2 030 entries
       spec: maximumSize=5000,expireAfterWrite=10s
 
+jwt:
+  # ⚠️  DEVELOPMENT DEFAULT ONLY — this key is public knowledge.
+  # Set JWT_SECRET to a cryptographically random Base64-encoded value (≥ 32 bytes)
+  # in every QA/staging/production deployment.
+  # Generate one with:  openssl rand -base64 32
+  secret: ${JWT_SECRET:ZW50ZXJwcmlzZS1wcm9qZWN0LWp3dC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudA==}
+  access-token-expiry-seconds: 900      # 15 min
+  refresh-token-expiry-seconds: 604800  # 7 days
+
 server:
   port: 8080
   servlet:

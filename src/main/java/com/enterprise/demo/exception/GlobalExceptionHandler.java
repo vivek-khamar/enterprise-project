@@ -2,10 +2,12 @@ package com.enterprise.demo.exception;
 
 import com.enterprise.demo.exception.FileStorageException;
 import com.enterprise.demo.exception.InvalidFileException;
+import com.enterprise.demo.exception.TokenException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -74,6 +76,32 @@ public class GlobalExceptionHandler {
         body.put("details", ex.getMessage());
 
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Object> handleAuthenticationException(
+            AuthenticationException ex, WebRequest request) {
+        log.warn("Authentication failed: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", "Unauthorized");
+        body.put("details", ex.getMessage());
+
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
+    }
+
+    @ExceptionHandler(TokenException.class)
+    public ResponseEntity<Object> handleTokenException(
+            TokenException ex, WebRequest request) {
+        log.warn("Token error: {}", ex.getMessage());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", "Token error");
+        body.put("details", ex.getMessage());
+
+        return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(FileStorageException.class)

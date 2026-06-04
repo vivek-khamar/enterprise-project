@@ -15,10 +15,12 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 
 @Slf4j
 @Service
@@ -27,6 +29,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserEventPublisher eventPublisher;
+    private final PasswordEncoder passwordEncoder;
 
     @Cacheable("users-list")
     public Page<UserDto> getAllUsers(Pageable pageable) {
@@ -58,6 +61,9 @@ public class UserService {
 
         existingUser.setUsername(userDto.getUsername());
         existingUser.setEmail(userDto.getEmail());
+        if (userDto.getPassword() != null && !userDto.getPassword().isBlank()) {
+            existingUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
+        }
 
         User updatedUser = userRepository.save(existingUser);
         publishAfterCommit(UserEvent.of(
@@ -109,6 +115,10 @@ public class UserService {
     }
 
     private User convertToEntity(UserDto userDto) {
-        return new User(userDto.getUsername(), userDto.getEmail());
+        User user = new User(userDto.getUsername(), userDto.getEmail());
+        if (userDto.getPassword() != null && !userDto.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(userDto.getPassword()));
+        }
+        return user;
     }
 }

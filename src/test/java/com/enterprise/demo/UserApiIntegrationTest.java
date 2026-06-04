@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -40,7 +41,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
 
     @Test
     void createUser_returns201_andUserIsPersisted() throws Exception {
-        mockMvc.perform(post(USERS_BASE)
+        mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isCreated())
@@ -56,7 +57,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
     void createUser_returns409_whenUsernameAlreadyExists() throws Exception {
         createUser("jsmith", "first@example.com");
 
-        mockMvc.perform(post(USERS_BASE)
+        mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"second@example.com\"}"))
                 .andExpect(status().isConflict())
@@ -65,7 +66,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
 
     @Test
     void createUser_returns400_forInvalidEmail() throws Exception {
-        mockMvc.perform(post(USERS_BASE)
+        mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"not-an-email\"}"))
                 .andExpect(status().isBadRequest())
@@ -79,7 +80,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         MvcResult created = createUserAndReturn("adoe", "adoe@example.com");
         long id = extractId(created);
 
-        mockMvc.perform(get(USERS_BASE + "/" + id))
+        mockMvc.perform(get(USERS_BASE + "/" + id).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id))
                 .andExpect(jsonPath("$.username").value("adoe"))
@@ -88,7 +89,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
 
     @Test
     void getUserById_returns404_whenNotFound() throws Exception {
-        mockMvc.perform(get(USERS_BASE + "/9999"))
+        mockMvc.perform(get(USERS_BASE + "/9999").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"));
     }
@@ -98,7 +99,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         createUser("alice", "alice@example.com");
         createUser("bob", "bob@example.com");
 
-        mockMvc.perform(get(USERS_BASE))
+        mockMvc.perform(get(USERS_BASE).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.totalElements").value(2));
@@ -111,7 +112,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         MvcResult created = createUserAndReturn("before", "before@example.com");
         long id = extractId(created);
 
-        mockMvc.perform(put(USERS_BASE + "/" + id)
+        mockMvc.perform(put(USERS_BASE + "/" + id).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"after\",\"email\":\"after@example.com\"}"))
                 .andExpect(status().isOk())
@@ -125,7 +126,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
 
     @Test
     void updateUser_returns404_whenNotFound() throws Exception {
-        mockMvc.perform(put(USERS_BASE + "/9999")
+        mockMvc.perform(put(USERS_BASE + "/9999").with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"x\",\"email\":\"x@example.com\"}"))
                 .andExpect(status().isNotFound());
@@ -138,7 +139,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         MvcResult created = createUserAndReturn("todelete", "del@example.com");
         long id = extractId(created);
 
-        mockMvc.perform(delete(USERS_BASE + "/" + id))
+        mockMvc.perform(delete(USERS_BASE + "/" + id).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(id)).isEmpty();
@@ -146,7 +147,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
 
     @Test
     void deleteUser_returns404_whenNotFound() throws Exception {
-        mockMvc.perform(delete(USERS_BASE + "/9999"))
+        mockMvc.perform(delete(USERS_BASE + "/9999").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNotFound());
     }
 
@@ -158,7 +159,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         createUser("adoe", "adoe@example.com");
         createUser("jjones", "jjones@example.com");
 
-        mockMvc.perform(get(USERS_BASE).param("username", "j"))
+        mockMvc.perform(get(USERS_BASE).with(user("admin").roles("ADMIN")).param("username", "j"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2));
     }
@@ -168,7 +169,7 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
         createUser("alice", "alice@example.com");
         createUser("bob", "bob@company.org");
 
-        mockMvc.perform(get(USERS_BASE).param("email", "example.com"))
+        mockMvc.perform(get(USERS_BASE).with(user("admin").roles("ADMIN")).param("email", "example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].username").value("alice"));
@@ -178,11 +179,11 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
     void search_isCaseInsensitiveInPostgres() throws Exception {
         createUser("JSmith", "JSmith@Example.COM");
 
-        mockMvc.perform(get(USERS_BASE).param("username", "jsmith"))
+        mockMvc.perform(get(USERS_BASE).with(user("admin").roles("ADMIN")).param("username", "jsmith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
 
-        mockMvc.perform(get(USERS_BASE).param("email", "example.com"))
+        mockMvc.perform(get(USERS_BASE).with(user("admin").roles("ADMIN")).param("email", "example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
     }
@@ -190,14 +191,14 @@ class UserApiIntegrationTest extends AbstractKafkaIntegrationTest {
     // --- helpers ---
 
     private void createUser(String username, String email) throws Exception {
-        mockMvc.perform(post(USERS_BASE)
+        mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\"}"))
                 .andExpect(status().isCreated());
     }
 
     private MvcResult createUserAndReturn(String username, String email) throws Exception {
-        return mockMvc.perform(post(USERS_BASE)
+        return mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + username + "\",\"email\":\"" + email + "\"}"))
                 .andExpect(status().isCreated())
