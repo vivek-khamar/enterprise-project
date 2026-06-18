@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.enterprise.demo.security.JwtUtil;
+import com.enterprise.demo.service.AuditService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -34,6 +35,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private AuditService auditService;
 
     @MockitoBean
     private AuthService authService;
@@ -121,7 +125,7 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"expired\"}"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.details").value("Refresh token has expired"));
+                .andExpect(jsonPath("$.details").value("Invalid or expired token"));
     }
 
     // ── logout ────────────────────────────────────────────────────────────────

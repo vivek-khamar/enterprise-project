@@ -73,6 +73,12 @@
             <artifactId>caffeine</artifactId>
         </dependency>
         
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.1</version>
+        </dependency>
+
         <!-- JWT — jjwt-impl is runtime only; custom Jackson-3 serializer in JwtUtil avoids jjwt-jackson -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

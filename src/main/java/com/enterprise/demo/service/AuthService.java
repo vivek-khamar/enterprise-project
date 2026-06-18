@@ -13,10 +13,12 @@ import com.enterprise.demo.repository.RefreshTokenRepository;
 import com.enterprise.demo.repository.UserRepository;
 import com.enterprise.demo.security.JwtUtil;
 import com.enterprise.demo.security.Role;
+import com.enterprise.demo.service.AuditService.Event;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +39,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtProperties jwtProperties;
+    private final AuditService auditService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -55,29 +58,44 @@ public class AuthService {
         user.setEnabled(true);
 
         User saved = userRepository.save(user);
+        auditService.log(Event.REGISTER_SUCCESS, saved.getUsername(), "role=USER");
         return buildAuthResponse(saved);
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+        } catch (AuthenticationException ex) {
+            auditService.log(Event.LOGIN_FAILURE, request.getUsername(),
+                    "reason=" + ex.getClass().getSimpleName());
+            throw ex;
+        }
 
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getUsername()));
 
+        auditService.log(Event.LOGIN_SUCCESS, user.getUsername(), "role=" + user.getRole());
         return buildAuthResponse(user);
     }
 
     @Transactional
     public AuthResponse refresh(RefreshRequest request) {
         RefreshToken storedToken = refreshTokenRepository.findByToken(request.getRefreshToken())
-                .orElseThrow(() -> new TokenException("Refresh token not found"));
+                .orElseThrow(() -> {
+                    auditService.log(Event.TOKEN_REFRESH_FAILED, "-", "reason=TOKEN_NOT_FOUND");
+                    return new TokenException("Refresh token not found");
+                });
 
         if (storedToken.isRevoked()) {
+            auditService.log(Event.TOKEN_REFRESH_FAILED, storedToken.getUser().getUsername(),
+                    "reason=TOKEN_REVOKED");
             throw new TokenException("Refresh token has been revoked");
         }
         if (storedToken.getExpiresAt().isBefore(Instant.now())) {
+            auditService.log(Event.TOKEN_REFRESH_FAILED, storedToken.getUser().getUsername(),
+                    "reason=TOKEN_EXPIRED");
             throw new TokenException("Refresh token has expired");
         }
 
@@ -85,7 +103,9 @@ public class AuthService {
         storedToken.setRevoked(true);
         refreshTokenRepository.save(storedToken);
 
-        return buildAuthResponse(storedToken.getUser());
+        User user = storedToken.getUser();
+        auditService.log(Event.TOKEN_REFRESHED, user.getUsername(), null);
+        return buildAuthResponse(user);
     }
 
     @Transactional
@@ -93,6 +113,7 @@ public class AuthService {
         refreshTokenRepository.findByToken(rawRefreshToken).ifPresent(rt -> {
             rt.setRevoked(true);
             refreshTokenRepository.save(rt);
+            auditService.log(Event.LOGOUT, rt.getUser().getUsername(), null);
         });
     }
 

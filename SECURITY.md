@@ -6,6 +6,13 @@ Do **not** open a public GitHub issue for security vulnerabilities.
 Email the maintainer directly or use GitHub's private vulnerability reporting:
 **Settings → Code security and analysis → Report a vulnerability**.
 
+## Data breach notification
+
+If you suspect a personal-data breach has occurred, follow the procedure in
+[docs/breach-notification.md](docs/breach-notification.md).
+The GDPR Art.33 72-hour DPA notification clock starts from the moment the
+organisation **becomes aware** of the breach — not when it is fully understood.
+
 ---
 
 ## Secrets inventory

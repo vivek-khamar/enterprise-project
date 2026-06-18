@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.enterprise.demo.service.AuditService;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -50,6 +51,9 @@ class AuthServiceTest {
     @Mock private AuthenticationManager authenticationManager;
     @Mock private UserDetailsService userDetailsService;
     @Mock private JwtProperties jwtProperties;
+
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks private AuthService authService;
 
@@ -135,6 +139,17 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(new LoginRequest("jsmith", "wrong")))
                 .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void login_throwsResourceNotFound_whenUserDisappearsAfterAuthentication() {
+        // Rare edge case: user is deleted between authentication and DB lookup.
+        // Exercises the orElseThrow lambda in AuthService.login().
+        when(userRepository.findByUsername("jsmith")).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest("jsmith", "Pass1234!")))
+                .isInstanceOf(com.enterprise.demo.exception.ResourceNotFoundException.class)
+                .hasMessageContaining("jsmith");
     }
 
     // ── refresh ───────────────────────────────────────────────────────────────

@@ -1,5 +1,8 @@
 package com.enterprise.demo.security;
 
+import com.enterprise.demo.service.AuditService;
+import com.enterprise.demo.service.AuditService.Event;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,7 +24,7 @@ import java.io.IOException;
 /**
  * Reads the Authorization: Bearer <token> header, validates the JWT,
  * and populates the SecurityContext for the current request.
- * Invalid or missing tokens are silently ignored here;
+ * Invalid or missing tokens are audited before being ignored here;
  * Spring Security's AuthenticationEntryPoint handles the 401 response.
  */
 @Slf4j
@@ -31,6 +34,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final AuditService auditService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -58,9 +62,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
+        } catch (ExpiredJwtException e) {
+            // Distinguish expired tokens from truly invalid ones: expired is a common
+            // user-facing event (session ended), invalid suggests tampering or misconfiguration.
+            String expiredUser = e.getClaims() != null ? e.getClaims().getSubject() : "-";
+            auditService.log(Event.TOKEN_EXPIRED, expiredUser, null);
+            log.debug("JWT expired for user {}", expiredUser);
         } catch (JwtException | UsernameNotFoundException e) {
+            auditService.log(Event.TOKEN_INVALID, "-", "reason=" + e.getClass().getSimpleName());
             log.debug("JWT filter skipping invalid token: {}", e.getMessage());
-            // Continue without setting auth — endpoint security will return 401 if required
         }
 
         chain.doFilter(request, response);

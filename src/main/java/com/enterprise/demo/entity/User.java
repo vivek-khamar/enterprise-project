@@ -13,6 +13,10 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
 
 @Entity
 @Table(
@@ -46,6 +50,16 @@ public class User {
 
     @Column(nullable = false)
     private boolean enabled = true;
+
+    /** Populated automatically by Hibernate on INSERT — immutable thereafter. */
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    /** Updated automatically by Hibernate on every UPDATE. */
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private Instant updatedAt;
 
     /**
      * Convenience constructor used by existing tests and legacy service code.

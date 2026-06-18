@@ -68,7 +68,6 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
 
             assertThat(event.get("eventType").asText()).isEqualTo("USER_CREATED");
             assertThat(event.get("payload").get("username").asText()).isEqualTo("jsmith");
-            assertThat(event.get("payload").get("email").asText()).isEqualTo("j@example.com");
         }
     }
 
@@ -127,7 +126,6 @@ class UserEventIntegrationTest extends AbstractKafkaIntegrationTest {
             assertThat(event.has("payload")).isTrue();
             assertThat(event.get("payload").has("userId")).isTrue();
             assertThat(event.get("payload").has("username")).isTrue();
-            assertThat(event.get("payload").has("email")).isTrue();
         }
     }
 

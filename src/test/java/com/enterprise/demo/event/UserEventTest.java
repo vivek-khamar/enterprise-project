@@ -11,7 +11,7 @@ class UserEventTest {
     @Test
     void of_setsSchemaVersion() {
         UserEvent event = UserEvent.of(UserEventType.USER_CREATED,
-                new UserEventPayload(1L, "jsmith", "j@example.com"));
+                new UserEventPayload(1L, "jsmith"));
 
         assertThat(event.version()).isEqualTo("1.0");
     }
@@ -19,7 +19,7 @@ class UserEventTest {
     @Test
     void of_setsCorrectEventType() {
         UserEvent event = UserEvent.of(UserEventType.USER_UPDATED,
-                new UserEventPayload(2L, "jane", "jane@example.com"));
+                new UserEventPayload(2L, "jane"));
 
         assertThat(event.eventType()).isEqualTo(UserEventType.USER_UPDATED);
     }
@@ -27,7 +27,7 @@ class UserEventTest {
     @Test
     void of_setsNonNullUuidEventId() {
         UserEvent event = UserEvent.of(UserEventType.USER_DELETED,
-                new UserEventPayload(3L, "bob", "bob@example.com"));
+                new UserEventPayload(3L, "bob"));
 
         assertThat(event.eventId()).isNotNull();
         assertThat(event.eventId()).matches(
@@ -38,7 +38,7 @@ class UserEventTest {
     void of_setsTimestampWithinCallWindow() {
         Instant before = Instant.now();
         UserEvent event = UserEvent.of(UserEventType.USER_CREATED,
-                new UserEventPayload(1L, "jsmith", "j@example.com"));
+                new UserEventPayload(1L, "jsmith"));
         Instant after = Instant.now();
 
         assertThat(event.timestamp()).isAfterOrEqualTo(before);
@@ -47,18 +47,17 @@ class UserEventTest {
 
     @Test
     void of_mapsPayloadFieldsCorrectly() {
-        UserEventPayload payload = new UserEventPayload(42L, "alice", "alice@example.com");
+        UserEventPayload payload = new UserEventPayload(42L, "alice");
 
         UserEvent event = UserEvent.of(UserEventType.USER_CREATED, payload);
 
         assertThat(event.payload().userId()).isEqualTo(42L);
         assertThat(event.payload().username()).isEqualTo("alice");
-        assertThat(event.payload().email()).isEqualTo("alice@example.com");
     }
 
     @Test
     void of_generatesDifferentEventIdEachTime() {
-        UserEventPayload payload = new UserEventPayload(1L, "x", "x@x.com");
+        UserEventPayload payload = new UserEventPayload(1L, "x");
 
         UserEvent e1 = UserEvent.of(UserEventType.USER_CREATED, payload);
         UserEvent e2 = UserEvent.of(UserEventType.USER_CREATED, payload);
