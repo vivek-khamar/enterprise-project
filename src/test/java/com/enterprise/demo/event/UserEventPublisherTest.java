@@ -31,7 +31,7 @@ class UserEventPublisherTest {
     void publish_sendsToUserEventsTopic() {
         when(kafkaTemplate.send(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
         UserEvent event = UserEvent.of(UserEventType.USER_CREATED,
-                new UserEventPayload(1L, "jsmith", "j@example.com"));
+                new UserEventPayload(1L, "jsmith"));
 
         publisher.publish(event);
 
@@ -42,7 +42,7 @@ class UserEventPublisherTest {
     void publish_usesUserIdAsPartitionKey() {
         when(kafkaTemplate.send(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
         UserEvent event = UserEvent.of(UserEventType.USER_UPDATED,
-                new UserEventPayload(2L, "jane", "jane@example.com"));
+                new UserEventPayload(2L, "jane"));
 
         publisher.publish(event);
 
@@ -53,7 +53,7 @@ class UserEventPublisherTest {
     void publish_sendsEventAsValue() {
         when(kafkaTemplate.send(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
         UserEvent event = UserEvent.of(UserEventType.USER_DELETED,
-                new UserEventPayload(3L, "bob", "bob@example.com"));
+                new UserEventPayload(3L, "bob"));
 
         publisher.publish(event);
 
@@ -67,7 +67,7 @@ class UserEventPublisherTest {
         when(kafkaTemplate.send(any(), any(), any())).thenReturn(failed);
 
         UserEvent event = UserEvent.of(UserEventType.USER_CREATED,
-                new UserEventPayload(1L, "jsmith", "j@example.com"));
+                new UserEventPayload(1L, "jsmith"));
 
         assertThatThrownBy(() -> publisher.publish(event))
                 .isInstanceOf(EventPublishException.class)

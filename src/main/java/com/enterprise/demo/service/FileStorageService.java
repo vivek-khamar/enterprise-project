@@ -8,6 +8,10 @@ import com.enterprise.demo.exception.InvalidFileException;
 import com.enterprise.demo.exception.ResourceNotFoundException;
 import com.enterprise.demo.repository.FileMetadataRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -40,16 +44,17 @@ public class FileStorageService {
 
         String sanitizedName = sanitizeFilename(file.getOriginalFilename());
         String s3Key = "uploads/" + UUID.randomUUID() + "_" + sanitizedName;
-        String contentType = (file.getContentType() != null && !file.getContentType().isBlank())
-                ? file.getContentType()
-                : "application/octet-stream";
 
         try {
             s3Client.putObject(
                     PutObjectRequest.builder()
                             .bucket(s3Properties.getBucketName())
                             .key(s3Key)
-                            .contentType(contentType)
+                            // Force safe content-type regardless of what the client sent.
+                            // Content-Disposition: attachment prevents browsers from rendering
+                            // a malicious file inline when the presigned URL is opened.
+                            .contentType("application/octet-stream")
+                            .contentDisposition("attachment; filename=\"" + sanitizedName + "\"")
                             .contentLength(file.getSize())
                             .build(),
                     RequestBody.fromBytes(file.getBytes()));
@@ -63,9 +68,10 @@ public class FileStorageService {
         metadata.setOriginalFilename(file.getOriginalFilename() != null ? file.getOriginalFilename() : sanitizedName);
         metadata.setS3Key(s3Key);
         metadata.setS3Bucket(s3Properties.getBucketName());
-        metadata.setContentType(contentType);
+        metadata.setContentType("application/octet-stream");
         metadata.setFileSize(file.getSize());
         metadata.setUploadedAt(Instant.now());
+        metadata.setUploadedBy(currentUsername());
 
         return toDto(fileMetadataRepository.save(metadata), null);
     }
@@ -73,6 +79,8 @@ public class FileStorageService {
     public FileDto getFile(Long id) {
         FileMetadata metadata = fileMetadataRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("File not found with id: " + id));
+
+        assertOwnerOrAdmin(metadata);
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(s3Properties.getPresignedUrlExpiryMinutes()))
@@ -86,9 +94,11 @@ public class FileStorageService {
     }
 
     public List<FileDto> listFiles() {
-        return fileMetadataRepository.findAll().stream()
-                .map(m -> toDto(m, null))
-                .toList();
+        String caller = currentUsername();
+        List<FileMetadata> files = isAdmin()
+                ? fileMetadataRepository.findAll()
+                : fileMetadataRepository.findByUploadedBy(caller);
+        return files.stream().map(m -> toDto(m, null)).toList();
     }
 
     public void deleteFile(Long id) {
@@ -122,5 +132,23 @@ public class FileStorageService {
             return "unnamed";
         }
         return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private static String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) throw new AccessDeniedException("No authentication present");
+        return auth.getName();
+    }
+
+    private static boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    private static void assertOwnerOrAdmin(FileMetadata metadata) {
+        if (!isAdmin() && !metadata.getUploadedBy().equals(currentUsername())) {
+            throw new AccessDeniedException("Access denied to file id: " + metadata.getId());
+        }
     }
 }

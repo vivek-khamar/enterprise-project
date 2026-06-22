@@ -1,6 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://qa-db-server:5432/enterprise_qa
+    # sslmode=require: server must present a valid certificate; client cert not required.
+    # Upgrade to sslmode=verify-full with sslrootcert when the CA cert is available.
+    url: jdbc:postgresql://qa-db-server:5432/enterprise_qa?sslmode=require
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
@@ -16,3 +18,9 @@ logging:
   level:
     root: INFO
     com.enterprise.demo: DEBUG
+
+# Datadog log intake — required env vars for this profile:
+#   DD_API_KEY  (required)  your Datadog API key
+#   DD_ENV      (optional)  defaults to "unknown"; set to "qa"
+#   DD_SERVICE  (optional)  defaults to "enterprise-project"
+#   DD_VERSION  (optional)  set to the deployed artifact version

@@ -11,6 +11,16 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    java.util.Optional<User> findByUsername(String username);
+
+    java.util.Optional<User> findByEmail(String email);
+
+    java.util.Optional<User> findByPasswordResetToken(String passwordResetToken);
+
+    boolean existsByUsername(String username);
+
+    boolean existsByEmail(String email);
+
     // COALESCE forces a text type for the parameter so PostgreSQL can resolve lower().
     // When null is passed, COALESCE(null,'')='' is true and the LIKE branch is skipped.
     @Query("SELECT u FROM User u WHERE " +

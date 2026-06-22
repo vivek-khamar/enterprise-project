@@ -1,6 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://prod-db-server:5432/enterprise_prod
+    # sslmode=verify-full: validates server cert against the CA — strongest option.
+    # Set PGSSLROOTCERT env var (or sslrootcert=...) to point to the CA certificate.
+    url: jdbc:postgresql://prod-db-server:5432/enterprise_prod?sslmode=verify-full
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
   jpa:
@@ -16,3 +18,9 @@ logging:
   level:
     root: WARN
     com.enterprise.demo: INFO
+
+# Datadog log intake — required env vars for this profile:
+#   DD_API_KEY  (required)  your Datadog API key
+#   DD_ENV      (optional)  defaults to "unknown"; set to "prod"
+#   DD_SERVICE  (optional)  defaults to "enterprise-project"
+#   DD_VERSION  (optional)  set to the deployed artifact version

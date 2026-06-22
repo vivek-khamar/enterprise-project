@@ -1,3 +1,8 @@
+jwt:
+  # ⚠️  DEV-ONLY default — this key is public knowledge and must never be used
+  # outside of local development. Set JWT_SECRET in QA/prod environments.
+  secret: ${JWT_SECRET:ZW50ZXJwcmlzZS1wcm9qZWN0LWp3dC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudA==}
+
 spring:
   h2:
     console:
