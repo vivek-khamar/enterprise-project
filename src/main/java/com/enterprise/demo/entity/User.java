@@ -56,6 +56,12 @@ public class User {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "password_reset_token")
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_token_expiry")
+    private Instant passwordResetTokenExpiry;
+
     /** Updated automatically by Hibernate on every UPDATE. */
     @UpdateTimestamp
     @Column(nullable = false)

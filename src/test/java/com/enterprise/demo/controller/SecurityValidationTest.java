@@ -5,6 +5,7 @@ import com.enterprise.demo.security.JwtUtil;
 import com.enterprise.demo.service.AuditService;
 import com.enterprise.demo.service.AuthService;
 import com.enterprise.demo.service.FileStorageService;
+import com.enterprise.demo.service.PasswordResetService;
 import com.enterprise.demo.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,7 @@ class SecurityValidationTest {
     @MockitoBean private UserService userService;
     @MockitoBean private NotificationClient notificationClient;
     @MockitoBean private AuthService authService;
+    @MockitoBean private PasswordResetService passwordResetService;
     @MockitoBean private FileStorageService fileStorageService;
 
     // ── 1. Input validation ───────────────────────────────────────────────────

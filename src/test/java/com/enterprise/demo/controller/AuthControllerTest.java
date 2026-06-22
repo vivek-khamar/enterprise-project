@@ -5,7 +5,10 @@ import com.enterprise.demo.dto.LoginRequest;
 import com.enterprise.demo.dto.RefreshRequest;
 import com.enterprise.demo.dto.RegisterRequest;
 import com.enterprise.demo.exception.TokenException;
+import com.enterprise.demo.exception.ExpiredResetTokenException;
+import com.enterprise.demo.exception.InvalidResetTokenException;
 import com.enterprise.demo.service.AuthService;
+import com.enterprise.demo.service.PasswordResetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -41,6 +44,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private PasswordResetService passwordResetService;
 
     private static final AuthResponse SAMPLE_RESPONSE =
             new AuthResponse("access.tok", "refresh.tok", "Bearer", 900L);
@@ -145,6 +151,82 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ── forgot-password ───────────────────────────────────────────────────────
+
+    @Test
+    void forgotPassword_returns200WithGenericMessage() throws Exception {
+        doNothing().when(passwordResetService).initiateReset(any());
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"j@example.com\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message")
+                        .value("If that email is registered, a reset link has been sent."));
+    }
+
+    @Test
+    void forgotPassword_returns400WhenEmailBlank() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Validation failed"));
+    }
+
+    @Test
+    void forgotPassword_returns400WhenEmailInvalid() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"not-an-email\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ── reset-password ────────────────────────────────────────────────────────
+
+    @Test
+    void resetPassword_returns200WithSuccessMessage() throws Exception {
+        doNothing().when(passwordResetService).completeReset(any(), any());
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"some-uuid\",\"newPassword\":\"newPass1!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password reset successful."));
+    }
+
+    @Test
+    void resetPassword_returns400WhenTokenInvalid() throws Exception {
+        org.mockito.Mockito.doThrow(new InvalidResetTokenException())
+                .when(passwordResetService).completeReset(any(), any());
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"bad-token\",\"newPassword\":\"newPass1!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid reset token."));
+    }
+
+    @Test
+    void resetPassword_returns400WhenTokenExpired() throws Exception {
+        org.mockito.Mockito.doThrow(new ExpiredResetTokenException())
+                .when(passwordResetService).completeReset(any(), any());
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"expired-token\",\"newPassword\":\"newPass1!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Reset token has expired."));
+    }
+
+    @Test
+    void resetPassword_returns400WhenPasswordTooShort() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"some-uuid\",\"newPassword\":\"short\"}"))
                 .andExpect(status().isBadRequest());
     }
 }

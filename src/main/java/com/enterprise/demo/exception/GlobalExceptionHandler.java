@@ -1,10 +1,5 @@
 package com.enterprise.demo.exception;
 
-import com.enterprise.demo.exception.FileStorageException;
-import com.enterprise.demo.exception.InvalidFileException;
-import com.enterprise.demo.exception.KycException;
-import com.enterprise.demo.exception.TokenException;
-import com.enterprise.demo.exception.TransactionException;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -205,6 +200,26 @@ public class GlobalExceptionHandler {
         body.put(KEY_DETAILS, ex.getMessage());
 
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(InvalidResetTokenException.class)
+    public ResponseEntity<Object> handleInvalidResetToken(
+            InvalidResetTokenException ex, WebRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(KEY_TIMESTAMP, LocalDateTime.now());
+        body.put(KEY_MESSAGE, ex.getMessage());
+        body.put(KEY_DETAILS, ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ExpiredResetTokenException.class)
+    public ResponseEntity<Object> handleExpiredResetToken(
+            ExpiredResetTokenException ex, WebRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(KEY_TIMESTAMP, LocalDateTime.now());
+        body.put(KEY_MESSAGE, ex.getMessage());
+        body.put(KEY_DETAILS, ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)

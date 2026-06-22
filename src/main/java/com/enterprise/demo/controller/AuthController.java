@@ -1,10 +1,14 @@
 package com.enterprise.demo.controller;
 
 import com.enterprise.demo.dto.AuthResponse;
+import com.enterprise.demo.dto.ForgotPasswordRequest;
 import com.enterprise.demo.dto.LoginRequest;
+import com.enterprise.demo.dto.MessageResponse;
 import com.enterprise.demo.dto.RefreshRequest;
 import com.enterprise.demo.dto.RegisterRequest;
+import com.enterprise.demo.dto.ResetPasswordRequest;
 import com.enterprise.demo.service.AuthService;
+import com.enterprise.demo.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     /** Self-registration — creates a USER-role account and returns tokens. */
     @PostMapping("/register")
@@ -44,5 +49,22 @@ public class AuthController {
     public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest request) {
         authService.logout(request.getRefreshToken());
         return ResponseEntity.noContent().build();
+    }
+
+    /** Initiate password reset — sends a token to the registered email (logged in dev). */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.initiateReset(request.getEmail());
+        return ResponseEntity.ok(
+                new MessageResponse("If that email is registered, a reset link has been sent."));
+    }
+
+    /** Complete password reset — exchanges a valid token for a new password. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.completeReset(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(new MessageResponse("Password reset successful."));
     }
 }
