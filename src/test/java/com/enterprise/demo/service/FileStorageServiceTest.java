@@ -7,6 +7,7 @@ import com.enterprise.demo.exception.FileStorageException;
 import com.enterprise.demo.exception.InvalidFileException;
 import com.enterprise.demo.exception.ResourceNotFoundException;
 import com.enterprise.demo.repository.FileMetadataRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +15,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -63,6 +67,18 @@ class FileStorageServiceTest {
     void setUp() {
         lenient().when(s3Properties.getBucketName()).thenReturn("test-bucket");
         lenient().when(s3Properties.getPresignedUrlExpiryMinutes()).thenReturn(15L);
+
+        Authentication auth = mock(Authentication.class);
+        lenient().when(auth.getName()).thenReturn("test-user");
+        lenient().when(auth.getAuthorities()).thenReturn(java.util.Collections.emptyList());
+        SecurityContext ctx = mock(SecurityContext.class);
+        lenient().when(ctx.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(ctx);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -103,7 +119,7 @@ class FileStorageServiceTest {
         assertThat(captured.getOriginalFilename()).isEqualTo("my file.pdf");
         assertThat(captured.getS3Bucket()).isEqualTo("test-bucket");
         assertThat(captured.getS3Key()).startsWith("uploads/");
-        assertThat(captured.getContentType()).isEqualTo("application/pdf");
+        assertThat(captured.getContentType()).isEqualTo("application/octet-stream");
         assertThat(captured.getFileSize()).isEqualTo(512L);
         assertThat(captured.getUploadedAt()).isNotNull();
     }
@@ -174,7 +190,6 @@ class FileStorageServiceTest {
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);
         when(file.getOriginalFilename()).thenReturn("test.txt");
-        when(file.getContentType()).thenReturn("text/plain");
         when(file.getSize()).thenReturn(100L);
         when(file.getBytes()).thenThrow(new IOException("disk read error"));
 
@@ -215,7 +230,7 @@ class FileStorageServiceTest {
         List<FileMetadata> stored = List.of(
                 buildMetadata(1L, "a.png", "uploads/uuid_a.png", "image/png", 200L),
                 buildMetadata(2L, "b.pdf", "uploads/uuid_b.pdf", "application/pdf", 500L));
-        when(fileMetadataRepository.findAll()).thenReturn(stored);
+        when(fileMetadataRepository.findByUploadedBy("test-user")).thenReturn(stored);
 
         List<FileDto> result = fileStorageService.listFiles();
 
@@ -228,7 +243,7 @@ class FileStorageServiceTest {
 
     @Test
     void listFiles_returnsEmptyListWhenNoFiles() {
-        when(fileMetadataRepository.findAll()).thenReturn(List.of());
+        when(fileMetadataRepository.findByUploadedBy("test-user")).thenReturn(List.of());
 
         assertThat(fileStorageService.listFiles()).isEmpty();
     }
@@ -278,10 +293,37 @@ class FileStorageServiceTest {
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);
         when(file.getOriginalFilename()).thenReturn(filename);
-        when(file.getContentType()).thenReturn(contentType);
+        // contentType param kept for call-site readability; service always uses application/octet-stream
+        lenient().when(file.getContentType()).thenReturn(contentType);
         when(file.getSize()).thenReturn((long) content.length);
         when(file.getBytes()).thenReturn(content);
         return file;
+    }
+
+    @Test
+    void uploadFile_usesUnnamed_whenOriginalFilenameIsNull() throws Exception {
+        // Covers the sanitizeFilename(null) → "unnamed" branch
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.isEmpty()).thenReturn(false);
+        when(file.getOriginalFilename()).thenReturn(null);   // null → "unnamed"
+        when(file.getSize()).thenReturn(5L);
+        when(file.getBytes()).thenReturn(new byte[]{1, 2, 3, 4, 5});
+
+        when(s3Client.putObject(any(software.amazon.awssdk.services.s3.model.PutObjectRequest.class),
+                any(software.amazon.awssdk.core.sync.RequestBody.class)))
+                .thenReturn(software.amazon.awssdk.services.s3.model.PutObjectResponse.builder().build());
+
+        FileMetadata saved = buildMetadata(1L, "unnamed", "uploads/uuid_unnamed",
+                "application/octet-stream", 5L);
+        when(fileMetadataRepository.save(any(FileMetadata.class))).thenReturn(saved);
+
+        fileStorageService.uploadFile(file);
+
+        ArgumentCaptor<software.amazon.awssdk.services.s3.model.PutObjectRequest> captor =
+                ArgumentCaptor.forClass(software.amazon.awssdk.services.s3.model.PutObjectRequest.class);
+        verify(s3Client).putObject(captor.capture(),
+                any(software.amazon.awssdk.core.sync.RequestBody.class));
+        assertThat(captor.getValue().key()).contains("unnamed");
     }
 
     private FileMetadata buildMetadata(Long id, String filename, String s3Key, String contentType, Long size) {
@@ -293,6 +335,7 @@ class FileStorageServiceTest {
         m.setContentType(contentType);
         m.setFileSize(size);
         m.setUploadedAt(Instant.now());
+        m.setUploadedBy("test-user");
         return m;
     }
 }

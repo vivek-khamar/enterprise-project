@@ -11,6 +11,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import com.enterprise.demo.security.JwtUtil;
+import com.enterprise.demo.service.AuditService;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -21,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -34,6 +38,15 @@ class FileControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private UserDetailsService userDetailsService;
+
+    @MockitoBean
+    private AuditService auditService;
+
+    @MockitoBean
     private FileStorageService fileStorageService;
 
     @Test
@@ -44,7 +57,7 @@ class FileControllerTest {
         FileDto response = new FileDto(1L, "report.pdf", "application/pdf", 11L, Instant.now(), null);
         when(fileStorageService.uploadFile(any())).thenReturn(response);
 
-        mockMvc.perform(multipart("/api/v1/files").file(mockFile))
+        mockMvc.perform(multipart("/api/v1/files").with(user("user").roles("USER")).file(mockFile))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.originalFilename").value("report.pdf"))
@@ -60,7 +73,7 @@ class FileControllerTest {
         when(fileStorageService.uploadFile(any()))
                 .thenThrow(new InvalidFileException("Cannot upload empty file"));
 
-        mockMvc.perform(multipart("/api/v1/files").file(mockFile))
+        mockMvc.perform(multipart("/api/v1/files").with(user("user").roles("USER")).file(mockFile))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Invalid file"))
                 .andExpect(jsonPath("$.details").value("Cannot upload empty file"));
@@ -74,7 +87,7 @@ class FileControllerTest {
         when(fileStorageService.uploadFile(any()))
                 .thenThrow(new FileStorageException("Failed to upload file to S3: report.pdf"));
 
-        mockMvc.perform(multipart("/api/v1/files").file(mockFile))
+        mockMvc.perform(multipart("/api/v1/files").with(user("user").roles("USER")).file(mockFile))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("File storage error"))
                 .andExpect(jsonPath("$.details").value("Failed to upload file to S3: report.pdf"));
@@ -87,7 +100,7 @@ class FileControllerTest {
                 new FileDto(2L, "b.pdf", "application/pdf", 500L, Instant.now(), null));
         when(fileStorageService.listFiles()).thenReturn(files);
 
-        mockMvc.perform(get("/api/v1/files"))
+        mockMvc.perform(get("/api/v1/files").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].id").value(1))
@@ -100,7 +113,7 @@ class FileControllerTest {
     void listFiles_returns200WithEmptyList() throws Exception {
         when(fileStorageService.listFiles()).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/files"))
+        mockMvc.perform(get("/api/v1/files").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
     }
@@ -111,7 +124,7 @@ class FileControllerTest {
                 new FileDto(1L, "photo.jpg", "image/jpeg", 300L, Instant.now(), null));
         when(fileStorageService.listFiles()).thenReturn(files);
 
-        mockMvc.perform(get("/api/v1/files"))
+        mockMvc.perform(get("/api/v1/files").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].presignedUrl").doesNotExist());
     }
@@ -122,7 +135,7 @@ class FileControllerTest {
                 "https://s3.amazonaws.com/bucket/uploads/uuid_report.pdf?X-Amz-Signature=abc");
         when(fileStorageService.getFile(1L)).thenReturn(file);
 
-        mockMvc.perform(get("/api/v1/files/1"))
+        mockMvc.perform(get("/api/v1/files/1").with(user("user").roles("USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.originalFilename").value("report.pdf"))
@@ -135,7 +148,7 @@ class FileControllerTest {
         when(fileStorageService.getFile(99L))
                 .thenThrow(new ResourceNotFoundException("File not found with id: 99"));
 
-        mockMvc.perform(get("/api/v1/files/99"))
+        mockMvc.perform(get("/api/v1/files/99").with(user("user").roles("USER")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"))
                 .andExpect(jsonPath("$.details").value("File not found with id: 99"));
@@ -145,7 +158,7 @@ class FileControllerTest {
     void deleteFile_returns204OnSuccess() throws Exception {
         doNothing().when(fileStorageService).deleteFile(1L);
 
-        mockMvc.perform(delete("/api/v1/files/1"))
+        mockMvc.perform(delete("/api/v1/files/1").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
     }
 
@@ -154,7 +167,7 @@ class FileControllerTest {
         doThrow(new ResourceNotFoundException("File not found with id: 99"))
                 .when(fileStorageService).deleteFile(99L);
 
-        mockMvc.perform(delete("/api/v1/files/99"))
+        mockMvc.perform(delete("/api/v1/files/99").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Resource not found"))
                 .andExpect(jsonPath("$.details").value("File not found with id: 99"));
@@ -165,7 +178,7 @@ class FileControllerTest {
         doThrow(new FileStorageException("Failed to delete file from S3: uploads/uuid_file.txt"))
                 .when(fileStorageService).deleteFile(eq(1L));
 
-        mockMvc.perform(delete("/api/v1/files/1"))
+        mockMvc.perform(delete("/api/v1/files/1").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.message").value("File storage error"));
     }
@@ -178,7 +191,7 @@ class FileControllerTest {
         FileDto response = new FileDto(3L, "image.png", "image/png", 3L, Instant.now(), null);
         when(fileStorageService.uploadFile(any())).thenReturn(response);
 
-        mockMvc.perform(multipart("/api/v1/files").file(mockFile))
+        mockMvc.perform(multipart("/api/v1/files").with(user("user").roles("USER")).file(mockFile))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.contentType").value("image/png"));
     }

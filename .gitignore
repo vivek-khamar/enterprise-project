@@ -36,3 +36,32 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# ── Secrets and sensitive files — NEVER commit these ─────────────────────────
+# Environment variable files
+.env
+.env.*
+*.env
+!.env.example
+
+# Private keys, certificates, keystores
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.cer
+*.crt
+
+# Any file named credentials/secrets
+**/credentials.yml
+**/credentials.yaml
+**/secrets.yml
+**/secrets.yaml
+**/*secret*.yml
+**/*secret*.yaml
+**/*secret*.properties
+
+# k6 test results (may contain response bodies with tokens)
+load-tests/results/

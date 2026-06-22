@@ -1,10 +1,18 @@
 package com.enterprise.demo.controller;
 
+import com.enterprise.demo.client.NotificationClient;
+import com.enterprise.demo.dto.NotificationDto;
+import com.enterprise.demo.dto.UserDto;
+import com.enterprise.demo.service.UserService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,17 +25,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import com.enterprise.demo.client.NotificationClient;
-import com.enterprise.demo.dto.NotificationDto;
-import com.enterprise.demo.dto.UserDto;
-import com.enterprise.demo.service.UserService;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
+@Validated   // enables method-level constraint validation (e.g. @Positive on path vars)
 public class UserController {
 
     private final UserService userService;
@@ -47,7 +48,8 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserDto> getUserById(
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
@@ -59,18 +61,21 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<UserDto> updateUser(
-            @PathVariable Long id, @Valid @RequestBody UserDto userDto) {
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id,
+            @Valid @RequestBody UserDto userDto) {
         return ResponseEntity.ok(userService.updateUser(id, userDto));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/notifications")
-    public ResponseEntity<List<NotificationDto>> getUserNotifications(@PathVariable Long id) {
+    public ResponseEntity<List<NotificationDto>> getUserNotifications(
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id) {
         userService.getUserById(id); // validates user exists; throws 404 if not
         return ResponseEntity.ok(notificationClient.getNotificationsForUser(id));
     }

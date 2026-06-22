@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  logback-spring.xml — Spring Boot overrides the default logback config with this file.
+
+  Two appenders:
+    CONSOLE      - all application logs, plain text, coloured in dev
+    AUDIT_FILE   - SECURITY_AUDIT logger only, one JSON object per line
+
+  In production, configure a Logstash / Fluentd / Vector sidecar to ship
+  audit.log to your SIEM.  The JSON format is intentional: every key is
+  machine-parseable without a grok pattern.
+
+  Nothing in AUDIT_FILE ever contains a secret value; see AuditService.java
+  for the full list of fields that are logged.
+-->
+<configuration>
+
+  <springProfile name="!test,!integration-test">
+
+    <!-- ── Console appender (application logs) ─────────────────────────── -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <!-- Include thread name so concurrent requests are distinguishable -->
+        <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %highlight(%-5level) [%thread] %cyan(%logger{36}) : %msg%n</pattern>
+      </encoder>
+    </appender>
+
+    <!-- ── Audit file appender (SECURITY_AUDIT logger only) ────────────── -->
+    <!--
+      Each line is a JSON object so log-management tools can index every
+      field individually without a grok pattern.
+
+      Example output:
+        {"ts":"2026-06-04T09:12:34.567Z","level":"INFO","event":"LOGIN_SUCCESS","user":"jsmith","ip":"10.0.0.1"}
+        {"ts":"2026-06-04T09:12:45.123Z","level":"INFO","event":"TOKEN_EXPIRED","user":"adoe","ip":"10.0.0.2"}
+    -->
+    <appender name="AUDIT_FILE"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+      <file>logs/audit.log</file>
+      <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <!-- Keep 90 days of audit history; rotate daily -->
+        <fileNamePattern>logs/audit.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+        <maxHistory>90</maxHistory>
+      </rollingPolicy>
+      <encoder>
+        <!--
+          Map the structured "event=X user=Y ip=Z ..." message into JSON.
+          The %replace transforms the space-separated key=value tokens into
+          a flat JSON body that most SIEMs can index natively.
+        -->
+        <pattern>{"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%level","logger":"%logger",%replace(%msg){'(\w+)=(\S+)','"\1":"\2"'},"thread":"%thread"}%n</pattern>
+      </encoder>
+    </appender>
+
+    <!-- ── SECURITY_AUDIT logger ────────────────────────────────────────── -->
+    <!--
+      additivity=false: audit events go only to AUDIT_FILE, not to CONSOLE,
+      so that credentials-adjacent log lines are never interleaved with
+      debug output in development where CONSOLE output may be shared.
+      Change to true (and remove CONSOLE from the root logger) if you want
+      a single unified log stream.
+    -->
+    <logger name="SECURITY_AUDIT" level="INFO" additivity="false">
+      <appender-ref ref="AUDIT_FILE"/>
+      <!-- Uncomment to also echo audit lines to the console during development:
+      <appender-ref ref="CONSOLE"/> -->
+    </logger>
+
+    <!-- ── Root logger ──────────────────────────────────────────────────── -->
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+
+  </springProfile>
+
+  <!-- ── Datadog TCP log intake (qa and prod only) ───────────────────────── -->
+  <!--
+    Sends JSON logs directly to Datadog's TCP intake (TLS, port 10516).
+    The DD_API_KEY is prepended to every line — Datadog's required framing.
+
+    Required env var : DD_API_KEY
+    Optional env vars (Unified Service Tagging):
+      DD_ENV     (default: unknown)
+      DD_SERVICE (default: enterprise-project)
+      DD_VERSION
+      DD_INTAKE_HOST (default: intake.logs.datadoghq.com; change for EU/US3/US5)
+
+    CONSOLE is kept so container stdout / CloudWatch still receives logs.
+  -->
+  <springProfile name="qa,prod">
+    <appender name="DATADOG" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+      <destination>${DD_INTAKE_HOST:-intake.logs.datadoghq.com}:10516</destination>
+      <ssl/>
+      <keepAliveDuration>20 seconds</keepAliveDuration>
+      <reconnectionDelay>10 seconds</reconnectionDelay>
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        <!-- Datadog TCP framing: "<api-key> <json-payload>\n" -->
+        <prefix class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+          <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>${DD_API_KEY:-} </pattern>
+          </layout>
+        </prefix>
+        <customFields>{"ddsource":"java","service":"${DD_SERVICE:-enterprise-project}","ddtags":"env:${DD_ENV:-unknown},version:${DD_VERSION:-}"}</customFields>
+      </encoder>
+    </appender>
+
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="DATADOG"/>
+    </root>
+  </springProfile>
+
+  <!-- ── Test / CI profile: console only, no file I/O ────────────────────── -->
+  <springProfile name="test,integration-test">
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} : %msg%n</pattern>
+      </encoder>
+    </appender>
+    <logger name="SECURITY_AUDIT" level="INFO" additivity="false">
+      <!-- Route audit events to console so test output captures them -->
+      <appender-ref ref="CONSOLE"/>
+    </logger>
+    <root level="WARN">
+      <appender-ref ref="CONSOLE"/>
+    </root>
+  </springProfile>
+
+</configuration>

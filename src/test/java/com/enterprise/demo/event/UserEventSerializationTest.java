@@ -23,7 +23,7 @@ class UserEventSerializationTest {
                 UserEventType.USER_CREATED,
                 Instant.parse("2026-05-26T09:00:00Z"),
                 "1.0",
-                new UserEventPayload(1L, "jsmith", "j@example.com")
+                new UserEventPayload(1L, "jsmith")
         );
 
         assertThat(json.write(event)).extractingJsonPathStringValue("$.eventId")
@@ -38,7 +38,7 @@ class UserEventSerializationTest {
     @Test
     void serialize_eventTypeWrittenAsStringNotOrdinal() throws IOException {
         UserEvent event = new UserEvent("id", UserEventType.USER_UPDATED,
-                Instant.now(), "1.0", new UserEventPayload(1L, "u", "u@u.com"));
+                Instant.now(), "1.0", new UserEventPayload(1L, "u"));
 
         assertThat(json.write(event)).extractingJsonPathStringValue("$.eventType")
                 .isEqualTo("USER_UPDATED");
@@ -48,14 +48,12 @@ class UserEventSerializationTest {
     @Test
     void serialize_payloadNestedCorrectly() throws IOException {
         UserEvent event = new UserEvent("id", UserEventType.USER_DELETED,
-                Instant.now(), "1.0", new UserEventPayload(42L, "alice", "alice@example.com"));
+                Instant.now(), "1.0", new UserEventPayload(42L, "alice"));
 
         assertThat(json.write(event)).extractingJsonPathNumberValue("$.payload.userId")
                 .isEqualTo(42);
         assertThat(json.write(event)).extractingJsonPathStringValue("$.payload.username")
                 .isEqualTo("alice");
-        assertThat(json.write(event)).extractingJsonPathStringValue("$.payload.email")
-                .isEqualTo("alice@example.com");
     }
 
     @Test
@@ -68,8 +66,7 @@ class UserEventSerializationTest {
                   "version": "1.0",
                   "payload": {
                     "userId": 5,
-                    "username": "bob",
-                    "email": "bob@example.com"
+                    "username": "bob"
                   }
                 }
                 """;
@@ -81,7 +78,6 @@ class UserEventSerializationTest {
         assertThat(event.version()).isEqualTo("1.0");
         assertThat(event.payload().userId()).isEqualTo(5L);
         assertThat(event.payload().username()).isEqualTo("bob");
-        assertThat(event.payload().email()).isEqualTo("bob@example.com");
     }
 
     @Test
@@ -92,7 +88,7 @@ class UserEventSerializationTest {
                   "eventType": "USER_CREATED",
                   "timestamp": "2026-05-26T09:00:00Z",
                   "version": "1.0",
-                  "payload": {"userId": 1, "username": "u", "email": "u@u.com"}
+                  "payload": {"userId": 1, "username": "u"}
                 }
                 """;
 
@@ -110,7 +106,7 @@ class UserEventSerializationTest {
                       "eventType": "%s",
                       "timestamp": "2026-05-26T09:00:00Z",
                       "version": "1.0",
-                      "payload": {"userId": 1, "username": "u", "email": "u@u.com"}
+                      "payload": {"userId": 1, "username": "u"}
                     }
                     """.formatted(type.name());
 
