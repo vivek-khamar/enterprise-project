@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@Profile("dev")
+@Profile({"dev", "integration-test"})
 public class LoggingEmailService implements EmailService {
 
     @Override
