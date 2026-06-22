@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.enterprise.demo.service.AuditService;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -38,7 +39,16 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private com.enterprise.demo.repository.RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private UserEventPublisher eventPublisher;
+
+    @Mock
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private UserService userService;
@@ -209,6 +219,39 @@ class UserServiceTest {
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
+    }
+
+    // ── Password branch coverage ──────────────────────────────────────────────
+
+    @Test
+    void updateUser_hashesPasswordWhenProvided() {
+        User existing = new User("jsmith", "j@example.com");
+        existing.setId(1L);
+        User updated = new User("jsmith", "j@example.com");
+        updated.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.save(existing)).thenReturn(updated);
+
+        UserDto dto = new UserDto(null, "jsmith", "j@example.com");
+        dto.setPassword("NewPass123!");   // password present → branch exercised
+        userService.updateUser(1L, dto);
+
+        verify(passwordEncoder).encode("NewPass123!");
+    }
+
+    @Test
+    void createUser_hashesPasswordWhenProvided() {
+        UserDto dto = new UserDto(null, "alice", "alice@example.com");
+        dto.setPassword("Pass1234!");    // password present → branch exercised
+
+        User saved = new User("alice", "alice@example.com");
+        saved.setId(2L);
+        when(userRepository.save(any(User.class))).thenReturn(saved);
+        when(passwordEncoder.encode("Pass1234!")).thenReturn("hashed");
+
+        userService.createUser(dto);
+
+        verify(passwordEncoder).encode("Pass1234!");
     }
 
     @Test

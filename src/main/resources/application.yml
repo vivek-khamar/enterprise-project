@@ -19,6 +19,22 @@ spring:
       #   20 list pages + 9 search terms + 2 000 user IDs ≈ 2 030 entries
       spec: maximumSize=5000,expireAfterWrite=10s
 
+jwt:
+  # Required in every environment. Set JWT_SECRET to a cryptographically random
+  # Base64-encoded value (≥ 32 bytes). Generate one with: openssl rand -base64 32
+  # A dev-only default is provided in application-dev.yml; all other profiles
+  # will refuse to start unless JWT_SECRET is set explicitly.
+  secret: ${JWT_SECRET}
+  access-token-expiry-seconds: 900      # 15 min
+  refresh-token-expiry-seconds: 604800  # 7 days
+
+anthropic:
+  # Set ANTHROPIC_API_KEY in every non-dev environment.
+  # Without it, KYC document submissions are stored but AI analysis is skipped (status: FAILED).
+  api-key: ${ANTHROPIC_API_KEY:}
+  base-url: https://api.anthropic.com
+  model: claude-sonnet-4-6
+
 server:
   port: 8080
   servlet:

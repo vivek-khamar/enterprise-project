@@ -40,4 +40,8 @@ public class FileMetadata {
 
     @Column(nullable = false)
     private Instant uploadedAt;
+
+    /** Username of the authenticated user who uploaded this file. */
+    @Column(nullable = false)
+    private String uploadedBy;
 }

@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ class KafkaDownIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void createUser_returns201_whenKafkaIsUnavailable() throws Exception {
-        mockMvc.perform(post(USERS_BASE)
+        mockMvc.perform(post(USERS_BASE).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"jsmith\",\"email\":\"j@example.com\"}"))
                 .andExpect(status().isCreated())
@@ -58,7 +59,7 @@ class KafkaDownIntegrationTest extends AbstractIntegrationTest {
     void updateUser_returns200_whenKafkaIsUnavailable() throws Exception {
         User saved = userRepository.save(new User("before", "before@example.com"));
 
-        mockMvc.perform(put(USERS_BASE + "/" + saved.getId())
+        mockMvc.perform(put(USERS_BASE + "/" + saved.getId()).with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"after\",\"email\":\"after@example.com\"}"))
                 .andExpect(status().isOk())
@@ -72,7 +73,7 @@ class KafkaDownIntegrationTest extends AbstractIntegrationTest {
     void deleteUser_returns204_whenKafkaIsUnavailable() throws Exception {
         User saved = userRepository.save(new User("todelete", "del@example.com"));
 
-        mockMvc.perform(delete(USERS_BASE + "/" + saved.getId()))
+        mockMvc.perform(delete(USERS_BASE + "/" + saved.getId()).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
 
         assertThat(userRepository.findById(saved.getId())).isEmpty();
