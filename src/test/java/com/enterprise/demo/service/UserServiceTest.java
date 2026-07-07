@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.enterprise.demo.service.AuditService;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -41,8 +42,12 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private UserEventPublisher eventPublisher;
-    @Mock private PasswordEncoder passwordEncoder;
-    @Mock private AuditService auditService;
+
+    @Mock
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private UserService userService;

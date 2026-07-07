@@ -74,6 +74,8 @@ class UserControllerTest {
 
     // ── GET / — list ──────────────────────────────────────────────────────────
 
+    // ── read endpoints — any authenticated user ───────────────────────────────
+
     @Test
     void getAllUsers_returns200WithPagedContent() throws Exception {
         when(userService.getAllUsers(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(
