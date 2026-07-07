@@ -62,6 +62,9 @@ public class AuditService {
         USER_CREATED,
         USER_UPDATED,
         USER_DELETED,
+        USER_ENABLED,
+        USER_DISABLED,
+        ROLE_CHANGED,
         FILE_DELETED
     }
 

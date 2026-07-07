@@ -1,9 +1,11 @@
 package com.enterprise.demo.service;
 
-import com.enterprise.demo.dto.UserDto;
+import com.enterprise.demo.dto.AdminUserDto;
 import com.enterprise.demo.entity.User;
 import com.enterprise.demo.event.UserEventPublisher;
+import com.enterprise.demo.repository.RefreshTokenRepository;
 import com.enterprise.demo.repository.UserRepository;
+import com.enterprise.demo.security.Role;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 
@@ -23,19 +26,14 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * TDD — RED phase. Every test fails with UnsupportedOperationException until
- * UserService.searchUsers is implemented to delegate to
- * UserRepository.searchByFilters and map results to UserDto.
- */
 @ExtendWith(MockitoExtension.class)
 class UserSearchServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private UserEventPublisher eventPublisher;
+    @Mock private UserRepository userRepository;
+    @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private UserEventPublisher eventPublisher;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private AuditService auditService;
 
     @InjectMocks
     private UserService userService;
@@ -44,8 +42,6 @@ class UserSearchServiceTest {
 
     @Test
     void searchUsers_delegatesToRepositorySearchByFilters() {
-        // Verifies the service forwards the call to the correct repository method.
-        // FAILS: stub throws UnsupportedOperationException before reaching the verify.
         User user = userWithId(1L, "jsmith", "j@example.com");
         when(userRepository.searchByFilters(eq("smith"), isNull(), eq(PAGE)))
                 .thenReturn(new PageImpl<>(List.of(user)));
@@ -56,25 +52,23 @@ class UserSearchServiceTest {
     }
 
     @Test
-    void searchUsers_returnsMappedDtosFromRepositoryPage() {
-        // Verifies that User entities from the repository are converted to UserDtos.
-        // FAILS: stub throws UnsupportedOperationException.
+    void searchUsers_returnsMappedAdminDtosFromRepositoryPage() {
         User user = userWithId(1L, "jsmith", "j@example.com");
         when(userRepository.searchByFilters(eq("smith"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(user)));
 
-        Page<UserDto> result = userService.searchUsers("smith", null, PAGE);
+        Page<AdminUserDto> result = userService.searchUsers("smith", null, PAGE);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getId()).isEqualTo(1L);
-        assertThat(result.getContent().get(0).getUsername()).isEqualTo("jsmith");
-        assertThat(result.getContent().get(0).getEmail()).isEqualTo("j@example.com");
+        assertThat(result.getContent().get(0).id()).isEqualTo(1L);
+        assertThat(result.getContent().get(0).username()).isEqualTo("jsmith");
+        assertThat(result.getContent().get(0).email()).isEqualTo("j@example.com");
+        assertThat(result.getContent().get(0).role()).isEqualTo(Role.USER);
+        assertThat(result.getContent().get(0).enabled()).isTrue();
     }
 
     @Test
     void searchUsers_withUsernameOnlyPassesNullEmailToRepository() {
-        // Verifies that a missing email param is forwarded as null, not as an empty string.
-        // FAILS: stub throws UnsupportedOperationException.
         when(userRepository.searchByFilters(eq("smith"), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
@@ -85,8 +79,6 @@ class UserSearchServiceTest {
 
     @Test
     void searchUsers_withEmailOnlyPassesNullUsernameToRepository() {
-        // Verifies that a missing username param is forwarded as null, not as an empty string.
-        // FAILS: stub throws UnsupportedOperationException.
         when(userRepository.searchByFilters(isNull(), eq("example.com"), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
@@ -97,12 +89,10 @@ class UserSearchServiceTest {
 
     @Test
     void searchUsers_returnsEmptyPageWhenRepositoryFindsNoResults() {
-        // Verifies the service propagates an empty page rather than returning null.
-        // FAILS: stub throws UnsupportedOperationException.
         when(userRepository.searchByFilters(eq("zzz"), isNull(), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        Page<UserDto> result = userService.searchUsers("zzz", null, PAGE);
+        Page<AdminUserDto> result = userService.searchUsers("zzz", null, PAGE);
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).isEmpty();
@@ -111,8 +101,6 @@ class UserSearchServiceTest {
 
     @Test
     void searchUsers_propagatesPageableToRepository() {
-        // Verifies that pagination/sorting settings are forwarded unchanged.
-        // FAILS: stub throws UnsupportedOperationException.
         Pageable customPage = PageRequest.of(2, 10);
         when(userRepository.searchByFilters(any(), any(), eq(customPage)))
                 .thenReturn(Page.empty());

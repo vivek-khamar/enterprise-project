@@ -1,5 +1,6 @@
 package com.enterprise.demo.service;
 
+import com.enterprise.demo.dto.AdminUserDto;
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.entity.User;
 import com.enterprise.demo.event.UserEvent;
@@ -8,8 +9,10 @@ import com.enterprise.demo.event.UserEventPublisher;
 import com.enterprise.demo.event.UserEventType;
 import com.enterprise.demo.exception.EventPublishException;
 import com.enterprise.demo.exception.ResourceNotFoundException;
+import com.enterprise.demo.exception.SelfModificationException;
 import com.enterprise.demo.repository.RefreshTokenRepository;
 import com.enterprise.demo.repository.UserRepository;
+import com.enterprise.demo.security.Role;
 import com.enterprise.demo.service.AuditService.Event;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,15 +39,15 @@ public class UserService {
     private final AuditService auditService;
 
     @Cacheable("users-list")
-    public Page<UserDto> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable).map(this::convertToDto);
+    public Page<AdminUserDto> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(AdminUserDto::from);
     }
 
     @Cacheable("users-by-id")
-    public UserDto getUserById(Long id) {
+    public AdminUserDto getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        return convertToDto(user);
+        return AdminUserDto.from(user);
     }
 
     @Transactional
@@ -105,8 +108,44 @@ public class UserService {
     }
 
     @Cacheable("users-search")
-    public Page<UserDto> searchUsers(String username, String email, Pageable pageable) {
-        return userRepository.searchByFilters(username, email, pageable).map(this::convertToDto);
+    public Page<AdminUserDto> searchUsers(String username, String email, Pageable pageable) {
+        return userRepository.searchByFilters(username, email, pageable).map(AdminUserDto::from);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"users-list", "users-by-id", "users-search"}, allEntries = true)
+    public AdminUserDto enableDisableUser(Long id, boolean enabled, String adminUsername) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        if (user.getUsername().equals(adminUsername)) {
+            throw new SelfModificationException();
+        }
+        user.setEnabled(enabled);
+        User saved = userRepository.save(user);
+        auditService.logAdminAction(enabled ? Event.USER_ENABLED : Event.USER_DISABLED,
+                String.valueOf(id), "username=" + user.getUsername());
+        publishAfterCommit(UserEvent.of(
+                UserEventType.USER_UPDATED,
+                new UserEventPayload(saved.getId(), saved.getUsername())));
+        return AdminUserDto.from(saved);
+    }
+
+    @Transactional
+    @CacheEvict(value = {"users-list", "users-by-id", "users-search"}, allEntries = true)
+    public AdminUserDto changeRole(Long id, Role newRole, String adminUsername) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        if (user.getUsername().equals(adminUsername)) {
+            throw new SelfModificationException();
+        }
+        user.setRole(newRole);
+        User saved = userRepository.save(user);
+        auditService.logAdminAction(Event.ROLE_CHANGED, String.valueOf(id),
+                "username=" + user.getUsername() + " newRole=" + newRole);
+        publishAfterCommit(UserEvent.of(
+                UserEventType.USER_UPDATED,
+                new UserEventPayload(saved.getId(), saved.getUsername())));
+        return AdminUserDto.from(saved);
     }
 
     // Defers Kafka publish until after the DB transaction commits.

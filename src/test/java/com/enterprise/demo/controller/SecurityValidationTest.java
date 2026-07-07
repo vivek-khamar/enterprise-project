@@ -7,16 +7,24 @@ import com.enterprise.demo.service.AuthService;
 import com.enterprise.demo.service.FileStorageService;
 import com.enterprise.demo.service.PasswordResetService;
 import com.enterprise.demo.service.UserService;
+import com.enterprise.demo.security.SecurityConfig;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
+import org.springframework.security.test.context.support.WithMockUser;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -34,10 +42,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * This class uses @WebMvcTest so only the web slice is loaded; services are mocked.
  */
 @WebMvcTest({UserController.class, AuthController.class, FileController.class})
+@Import(SecurityConfig.class)
 class SecurityValidationTest {
 
-    @Autowired
+    @Autowired private WebApplicationContext context;
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void setup() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(context)
+                .apply(SecurityMockMvcConfigurers.springSecurity())
+                .build();
+    }
 
     // ── required mocks for the web slice ──────────────────────────────────────
     @MockitoBean private JwtUtil jwtUtil;
@@ -162,6 +178,44 @@ class SecurityValidationTest {
     // CSRF is intentionally disabled (stateless JWT; no session cookie).
     // Verifying that state-changing requests work WITHOUT a CSRF token confirms
     // the correct security model is in place.
+
+    // ── 5. PATCH endpoints require ADMIN role ─────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "jsmith", roles = "USER")
+    void updateUserStatus_returns403_forNonAdmin() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "jsmith", roles = "USER")
+    void updateUserRole_returns403_forNonAdmin() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/1/role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateUserStatus_returns401_forUnauthenticated() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/1/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateUserRole_returns401_forUnauthenticated() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/1/role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"role\":\"ADMIN\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ── 6. CSRF ───────────────────────────────────────────────────────────────
 
     @Test
     void postWithoutCsrfToken_isAccepted_forStatelessJwtApi() throws Exception {
