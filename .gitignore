@@ -65,3 +65,5 @@ out/
 
 # k6 test results (may contain response bodies with tokens)
 load-tests/results/
+.claude/.env
+.claude/settings.local.json
