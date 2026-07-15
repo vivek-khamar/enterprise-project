@@ -3,6 +3,7 @@
   "jiraUrl": "https://golinkup.atlassian.net",
   "sonarProjectKey": "com.enterprise:enterprise-project",
   "slackChannel": "#dev-prs",
+  "baseBranch": "develop",
   "mavenProfiles": [],
   "notes": ""
 }
