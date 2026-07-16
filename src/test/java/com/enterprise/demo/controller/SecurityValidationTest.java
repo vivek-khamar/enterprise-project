@@ -92,7 +92,8 @@ class SecurityValidationTest {
         String longUsername = "x".repeat(51);
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"" + longUsername + "\",\"email\":\"a@b.com\",\"password\":\"Pass1234!\"}"))
+                        .content("{\"username\":\"" + longUsername
+                                + "\",\"email\":\"a@b.com\",\"password\":\"Pass1234!\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Validation failed"));
     }

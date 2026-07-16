@@ -62,7 +62,7 @@ public class UserController {
     public ResponseEntity<AdminUserDto> updateUserStatus(
             @PathVariable @Positive(message = "User ID must be a positive number") Long id,
             @Valid @RequestBody UpdateStatusRequest request) {
-        String adminUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        String adminUsername = currentAdminUsername();
         return ResponseEntity.ok(userService.enableDisableUser(id, request.getEnabled(), adminUsername));
     }
 
@@ -70,8 +70,16 @@ public class UserController {
     public ResponseEntity<AdminUserDto> updateUserRole(
             @PathVariable @Positive(message = "User ID must be a positive number") Long id,
             @Valid @RequestBody UpdateRoleRequest request) {
-        String adminUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        String adminUsername = currentAdminUsername();
         return ResponseEntity.ok(userService.changeRole(id, request.getRole(), adminUsername));
+    }
+
+    private String currentAdminUsername() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new IllegalStateException("No authenticated principal found for this request");
+        }
+        return authentication.getName();
     }
 
     @PostMapping

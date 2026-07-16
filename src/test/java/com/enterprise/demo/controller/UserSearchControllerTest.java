@@ -49,7 +49,8 @@ class UserSearchControllerTest {
     @Test
     void getAllUsers_withUsernameParam_callsSearchUsersNotGetAllUsers() throws Exception {
         when(userService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
+                .thenReturn(new PageImpl<>(List.of(
+                        dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
         when(userService.searchUsers(eq("smith"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"))));
 
@@ -65,7 +66,8 @@ class UserSearchControllerTest {
     @Test
     void getAllUsers_withEmailParam_callsSearchUsersWithNullUsername() throws Exception {
         when(userService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
+                .thenReturn(new PageImpl<>(List.of(
+                        dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
         when(userService.searchUsers(isNull(), eq("example.com"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"))));
 
@@ -80,7 +82,8 @@ class UserSearchControllerTest {
     @Test
     void getAllUsers_withBothParams_callsSearchUsersWithBothFilters() throws Exception {
         when(userService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
+                .thenReturn(new PageImpl<>(List.of(
+                        dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
         when(userService.searchUsers(eq("smith"), eq("example.com"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"))));
 
@@ -99,7 +102,8 @@ class UserSearchControllerTest {
     @Test
     void getAllUsers_withUsernameFilter_returnsOnlyMatchingUsersInPage() throws Exception {
         when(userService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
+                .thenReturn(new PageImpl<>(List.of(
+                        dto(1L, "jsmith", "j@example.com"), dto(2L, "adoe", "a@example.com"))));
         when(userService.searchUsers(eq("smith"), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"))));
 
@@ -125,7 +129,8 @@ class UserSearchControllerTest {
     @Test
     void getAllUsers_withBothFilters_returnsIntersectionResult() throws Exception {
         when(userService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(dto(1L, "jsmith", "j@example.com"), dto(2L, "bwilson", "b@example.com"))));
+                .thenReturn(new PageImpl<>(List.of(
+                        dto(1L, "jsmith", "j@example.com"), dto(2L, "bwilson", "b@example.com"))));
         when(userService.searchUsers(eq("wilson"), eq("example.com"), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(dto(2L, "bwilson", "b@example.com"))));
 
