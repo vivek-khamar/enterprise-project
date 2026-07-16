@@ -113,6 +113,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/files/**").hasRole(ROLE_ADMIN)
                 .requestMatchers(HttpMethod.POST, "/api/v1/users").hasRole(ROLE_ADMIN)
                 .requestMatchers(HttpMethod.PUT, "/api/v1/users/**").hasRole(ROLE_ADMIN)
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/users/**").hasRole(ROLE_ADMIN)
 
                 // ── KYC: submit + own status visible to any authenticated user ──
                 .requestMatchers(HttpMethod.POST, "/api/v1/kyc/submit").authenticated()

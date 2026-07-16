@@ -1,7 +1,10 @@
 package com.enterprise.demo.controller;
 
 import com.enterprise.demo.client.NotificationClient;
+import com.enterprise.demo.dto.AdminUserDto;
 import com.enterprise.demo.dto.NotificationDto;
+import com.enterprise.demo.dto.UpdateRoleRequest;
+import com.enterprise.demo.dto.UpdateStatusRequest;
 import com.enterprise.demo.dto.UserDto;
 import com.enterprise.demo.service.UserService;
 import jakarta.validation.Valid;
@@ -12,9 +15,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -35,7 +40,7 @@ public class UserController {
     private final NotificationClient notificationClient;
 
     @GetMapping
-    public ResponseEntity<Page<UserDto>> getAllUsers(
+    public ResponseEntity<Page<AdminUserDto>> getAllUsers(
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String email,
             @PageableDefault(size = 50, sort = "id") Pageable pageable) {
@@ -48,9 +53,33 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(
+    public ResponseEntity<AdminUserDto> getUserById(
             @PathVariable @Positive(message = "User ID must be a positive number") Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<AdminUserDto> updateUserStatus(
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id,
+            @Valid @RequestBody UpdateStatusRequest request) {
+        String adminUsername = currentAdminUsername();
+        return ResponseEntity.ok(userService.enableDisableUser(id, request.getEnabled(), adminUsername));
+    }
+
+    @PatchMapping("/{id}/role")
+    public ResponseEntity<AdminUserDto> updateUserRole(
+            @PathVariable @Positive(message = "User ID must be a positive number") Long id,
+            @Valid @RequestBody UpdateRoleRequest request) {
+        String adminUsername = currentAdminUsername();
+        return ResponseEntity.ok(userService.changeRole(id, request.getRole(), adminUsername));
+    }
+
+    private String currentAdminUsername() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new IllegalStateException("No authenticated principal found for this request");
+        }
+        return authentication.getName();
     }
 
     @PostMapping

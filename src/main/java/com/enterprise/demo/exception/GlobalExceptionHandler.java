@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
@@ -78,6 +79,18 @@ public class GlobalExceptionHandler {
         body.put(KEY_TIMESTAMP, LocalDateTime.now());
         body.put(KEY_MESSAGE, MSG_VALIDATION);
         body.put(KEY_DETAILS, details);
+
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, WebRequest request) {
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(KEY_TIMESTAMP, LocalDateTime.now());
+        body.put(KEY_MESSAGE, MSG_VALIDATION);
+        body.put(KEY_DETAILS, "Malformed or unreadable request body");
 
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
@@ -200,6 +213,16 @@ public class GlobalExceptionHandler {
         body.put(KEY_DETAILS, ex.getMessage());
 
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(SelfModificationException.class)
+    public ResponseEntity<Object> handleSelfModificationException(
+            SelfModificationException ex, WebRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(KEY_TIMESTAMP, LocalDateTime.now());
+        body.put(KEY_MESSAGE, ex.getMessage());
+        body.put(KEY_DETAILS, ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(InvalidResetTokenException.class)
